@@ -1,61 +1,105 @@
 <div>
     {{-- Flash Messages --}}
     @if (session()->has('success'))
-        <div class="bg-green-400 text-green-800 rounded-lg shadow-md p-6 pr-10 mb-8" style="min-width: 240px">
+        <div class="bg-green-400 text-green-800 rounded-lg shadow-md p-2 mb-2" style="min-width: 240px">
             {{ session('success') }}
         </div>
     @endif
-
     @if (session()->has('error'))
-        <div class="bg-red-400 text-red-800 rounded-lg shadow-md p-6 pr-10 mb-8" style="min-width: 240px">
+        <div class="bg-red-400 text-red-800 rounded-lg shadow-md p-2 mb-2" style="min-width: 240px">
             {{ session('error') }}
         </div>
     @endif
-
     @if (session()->has('warning'))
-        <div class="bg-yellow-400 text-yellow-800 rounded-lg shadow-md p-6 pr-10 mb-8" style="min-width: 240px">
+        <div class="bg-yellow-400 text-yellow-800 rounded-lg shadow-md p-2 mb-2" style="min-width: 240px">
             {{ session('warning') }}
         </div>
     @endif
 
+    {{-- Selected Courses Section (now at the top) --}}
+    <div class="card mb-4">
+        <div class="card-header flex flex-row justify-between py-2 px-4">
+            <h1 class="h6 text-sm">Geselecteerde Cursussen</h1>
+            @if(count($selectedCourses) > 0)
+                <span class="text-xs text-gray-600">({{ count($selectedCourses) }})</span>
+            @endif
+        </div>
+        <div class="py-2 px-4">
+            @if(count($selectedCourses) > 0)
+                <div class="space-y-1">
+                    @foreach($selectedCourses as $course)
+                        <div class="flex items-center justify-between border-b border-gray-100 py-1">
+                            <div class="truncate">
+                                <span class="font-medium text-gray-900 text-sm truncate">{{ $course['name'] }}</span>
+                                @if(isset($course['course_code']) && $course['course_code'])
+                                    <span class="text-xs text-gray-500 ml-2">{{ $course['course_code'] }}</span>
+                                @endif
+                                <span class="text-xs text-gray-400 ml-2">ID: {{ $course['id'] }}</span>
+                            </div>
+                            <button
+                                wire:click="removeCourse({{ $course['id'] }})"
+                                class="ml-2 p-1 text-red-600 hover:text-red-800 focus:outline-none"
+                                title="Verwijder cursus"
+                            >
+                                <i class="fad fa-trash text-xs"></i>
+                            </button>
+                        </div>
+                    @endforeach
+                </div>
+                <div class="mt-3 text-right">
+                    <button
+                        wire:click="proceedToModules"
+                        class="px-4 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 focus:outline-none"
+                    >
+                        Volgende stap: Modules kiezen
+                    </button>
+                </div>
+            @else
+                <div class="text-center py-2">
+                    <span class="text-xs text-gray-500">Geen cursussen geselecteerd</span>
+                </div>
+            @endif
+        </div>
+    </div>
+
     {{-- Search Section --}}
     <div class="card">
-        <div class="card-header">
-            <h1 class="h6">Canvas Cursussen Zoeken</h1>
+        <div class="card-header py-2 px-4">
+            <h1 class="h6 text-sm">Canvas Cursussen Zoeken</h1>
         </div>
-        <div class="py-4 px-6">
-            <div class="mb-4">
+        <div class="py-2 px-4">
+            <div class="mb-2">
                 <input
                     type="text"
                     wire:model.live.debounce.300ms="searchTerm"
                     placeholder="Zoek cursussen... (laat leeg voor alle cursussen)"
-                    class="bg-gray-200 block rounded w-full p-2 focus:border-purple-400 focus:outline-none focus:shadow-outline-purple form-input"
+                    class="bg-gray-200 block rounded w-full p-2 text-sm focus:border-purple-400 focus:outline-none focus:shadow-outline-purple form-input"
                 />
             </div>
 
             {{-- Search Results --}}
             @if(count($searchResults) > 0)
-                <div class="mt-4">
-                    <h3 class="text-sm font-semibold text-gray-700 mb-2">
+                <div>
+                    <h3 class="text-xs font-semibold text-gray-700 mb-1">
                         @if($searchTerm)
                             Zoekresultaten voor "{{ $searchTerm }}":
                         @else
                             Je beschikbare cursussen:
                         @endif
                     </h3>
-                    <div class="space-y-2 max-h-64 overflow-y-auto">
+                    <div class="space-y-1 max-h-48 overflow-y-auto">
                         @foreach($searchResults as $course)
-                            <div class="flex justify-between items-center p-3 bg-gray-50 rounded border">
-                                <div class="flex-1">
-                                    <h4 class="font-medium text-gray-900">{{ $course['name'] }}</h4>
+                            <div class="flex items-center justify-between border-b border-gray-100 py-1">
+                                <div class="truncate">
+                                    <span class="font-medium text-gray-900 text-sm truncate">{{ $course['name'] }}</span>
                                     @if(isset($course['course_code']) && $course['course_code'])
-                                        <p class="text-sm text-gray-600">Code: {{ $course['course_code'] }}</p>
+                                        <span class="text-xs text-gray-500 ml-2">{{ $course['course_code'] }}</span>
                                     @endif
-                                    <p class="text-xs text-gray-500">ID: {{ $course['id'] }}</p>
+                                    <span class="text-xs text-gray-400 ml-2">ID: {{ $course['id'] }}</span>
                                 </div>
                                 <button
                                     wire:click="selectCourse({{ json_encode($course) }})"
-                                    class="px-3 py-1 text-xs font-medium leading-5 text-white transition-colors duration-150 bg-purple-600 border border-transparent rounded hover:bg-purple-700 focus:outline-none focus:shadow-outline-purple"
+                                    class="ml-2 px-2 py-1 text-xs font-medium text-white bg-purple-600 rounded hover:bg-purple-700 focus:outline-none"
                                 >
                                     Selecteer
                                 </button>
@@ -64,50 +108,8 @@
                     </div>
                 </div>
             @elseif($searchTerm !== '' && count($searchResults) === 0)
-                <div class="mt-4 p-4 bg-yellow-50 rounded border border-yellow-200">
-                    <p class="text-yellow-800">Geen cursussen gevonden</p>
-                </div>
-            @endif
-        </div>
-    </div>
-
-    {{-- Selected Courses Section --}}
-    <div class="card mt-6">
-        <div class="card-header flex flex-row justify-between">
-            <h1 class="h6">Geselecteerde Cursussen</h1>
-            @if(count($selectedCourses) > 0)
-                <span class="text-sm text-gray-600">({{ count($selectedCourses) }})</span>
-            @endif
-        </div>
-        <div class="py-4 px-6">
-            @if(count($selectedCourses) > 0)
-                <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    @foreach($selectedCourses as $course)
-                        <div class="border border-gray-200 rounded p-4 bg-white hover:shadow-md transition-shadow">
-                            <div class="flex justify-between items-start">
-                                <div class="flex-1 min-w-0">
-                                    <h4 class="font-medium text-gray-900 text-sm">{{ $course['name'] }}</h4>
-                                    @if(isset($course['course_code']) && $course['course_code'])
-                                        <p class="text-xs text-gray-600 mt-1">{{ $course['course_code'] }}</p>
-                                    @endif
-                                    <p class="text-xs text-gray-500 mt-1">Canvas ID: {{ $course['id'] }}</p>
-                                </div>
-                                <button
-                                    wire:click="removeCourse({{ $course['id'] }})"
-                                    class="ml-2 p-1 text-red-600 hover:text-red-800 focus:outline-none"
-                                    title="Verwijder cursus"
-                                >
-                                    <i class="fad fa-trash text-sm"></i>
-                                </button>
-                            </div>
-                        </div>
-                    @endforeach
-                </div>
-            @else
-                <div class="text-center py-8">
-                    <i class="fad fa-books text-4xl text-gray-400 mb-4"></i>
-                    <h3 class="text-sm font-medium text-gray-900">Geen cursussen geselecteerd</h3>
-                    <p class="text-sm text-gray-500 mt-1">Begin met zoeken naar cursussen om ze te selecteren.</p>
+                <div class="mt-2 p-2 bg-yellow-50 rounded border border-yellow-200">
+                    <p class="text-xs text-yellow-800">Geen cursussen gevonden</p>
                 </div>
             @endif
         </div>

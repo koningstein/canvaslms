@@ -58,6 +58,25 @@ class CourseSelector extends Component
         }
     }
 
+
+    public function selectCourse($course)
+    {
+        // Prevent duplicates
+        foreach ($this->selectedCourses as $selected) {
+            if ($selected['id'] == $course['id']) {
+                return;
+            }
+        }
+        $this->selectedCourses[] = $course;
+    }
+
+    public function removeCourse($courseId)
+    {
+        $this->selectedCourses = array_values(array_filter($this->selectedCourses, function ($course) use ($courseId) {
+            return $course['id'] != $courseId;
+        }));
+    }
+
     // ... selectCourse, removeCourse, clearSearch blijven gelijk ...
 
     public function render()
