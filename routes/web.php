@@ -23,4 +23,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/courses', [CourseController::class, 'index'])->name('courses.index');
 });
 
+Route::middleware('auth')->get('/modules/select', function () {
+    $selectedCourses = session('selected_courses', []);
+    return view('modules.select', compact('selectedCourses'));
+})->name('modules.select');
+
 require __DIR__.'/auth.php';

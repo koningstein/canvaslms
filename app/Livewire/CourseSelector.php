@@ -77,6 +77,12 @@ class CourseSelector extends Component
         }));
     }
 
+    public function proceedToModules()
+    {
+        session(['selected_courses' => $this->selectedCourses]);
+        return redirect()->route('modules.select');
+    }
+
     // ... selectCourse, removeCourse, clearSearch blijven gelijk ...
 
     public function render()

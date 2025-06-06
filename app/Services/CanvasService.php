@@ -50,4 +50,24 @@ class CanvasService
             throw $e;
         }
     }
+
+    public function getModules($courseId)
+    {
+        try {
+            $response = Http::withOptions(['verify' => false])
+                ->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                ->get("{$this->baseUrl}/api/v1/courses/{$courseId}/modules", [
+                    'per_page' => 100,
+                ]);
+
+            if ($response->failed()) {
+                throw new \Exception('Fout bij het ophalen van modules');
+            }
+
+            return $response->json();
+        } catch (\Exception $e) {
+            \Log::error('Canvas Service fout (modules)', ['message' => $e->getMessage()]);
+            return [];
+        }
+    }
 }
