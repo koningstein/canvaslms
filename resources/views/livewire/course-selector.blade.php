@@ -27,8 +27,8 @@
         <div class="py-2 px-4">
             @if(count($selectedCourses) > 0)
                 <div class="space-y-1">
-                    @foreach($selectedCourses as $course)
-                        <div class="flex items-center justify-between border-b border-gray-100 py-1">
+                    @foreach($selectedCourses as $index => $course)
+                        <div class="flex items-center justify-between border-b border-gray-100 py-1 {{ $index % 2 == 0 ? 'bg-white' : 'bg-gray-200' }} px-2 rounded hover:bg-blue-50 transition-colors duration-150">
                             <div class="truncate">
                                 <span class="font-medium text-gray-900 text-sm truncate">{{ $course['name'] }}</span>
                                 @if(isset($course['course_code']) && $course['course_code'])
@@ -88,8 +88,8 @@
                         @endif
                     </h3>
                     <div class="space-y-1 max-h-48 overflow-y-auto">
-                        @foreach($searchResults as $course)
-                            <div class="flex items-center justify-between border-b border-gray-100 py-1">
+                        @foreach($searchResults as $index => $course)
+                            <div class="flex items-center justify-between border-b border-gray-100 py-2 {{ $index % 2 == 0 ? 'bg-white' : 'bg-gray-200' }} px-2 rounded hover:bg-blue-100 transition-colors duration-150">
                                 <div class="truncate">
                                     <span class="font-medium text-gray-900 text-sm truncate">{{ $course['name'] }}</span>
                                     @if(isset($course['course_code']) && $course['course_code'])

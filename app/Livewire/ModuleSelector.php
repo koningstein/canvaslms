@@ -52,14 +52,23 @@ class ModuleSelector extends Component
         $this->selectedModules = array_values($this->selectedModules);
     }
 
-    public function proceedToStudents()
+    public function proceedToAssignmentGroups()
     {
         session([
             'selected_courses' => $this->selectedCourses,
             'selected_modules' => $this->selectedModules,
         ]);
-        return redirect()->route('students.select');
+        return redirect()->route('assignment-groups.select');
     }
+
+//    public function proceedToStudents()
+//    {
+//        session([
+//            'selected_courses' => $this->selectedCourses,
+//            'selected_modules' => $this->selectedModules,
+//        ]);
+//        return redirect()->route('students.select');
+//    }
 
     public function render()
     {
