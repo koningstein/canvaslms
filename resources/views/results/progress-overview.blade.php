@@ -191,7 +191,13 @@
                 <tr class="border-b border-gray-100 hover:bg-gray-50">
                     <td class="px-2 py-3 border-r border-gray-200 text-sm font-medium text-gray-900 sticky left-0 bg-white z-10 max-w-32">
                         <div class="truncate">{{ $student['student_name'] }}</div>
-                        <div class="text-xs text-gray-500">ID: {{ $student['student_id'] }}</div>
+                        <div class="text-xs text-gray-500">
+                            @if(isset($student['sis_user_id']) && $student['sis_user_id'])
+                                {{ $student['sis_user_id'] }}
+                            @else
+                                ID: {{ $student['student_id'] }}
+                            @endif
+                        </div>
                     </td>
                     @if($studentsProgress->isNotEmpty())
                         @foreach($studentsProgress->first()['assignments']->groupBy('module_name') as $moduleName => $assignments)
