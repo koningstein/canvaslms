@@ -172,7 +172,7 @@ class StudentSelector extends Component
             'selected_users' => $this->selectedUsers,
         ]);
 
-        return redirect()->route('results.progress');
+        return redirect()->route('results.select');
     }
 
     public function render()

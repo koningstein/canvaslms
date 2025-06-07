@@ -61,7 +61,16 @@ Route::middleware('auth')->group(function () {
         return view('students.select', compact('selectedCourses', 'selectedModules', 'selectedAssignmentGroups'));
     })->name('students.select');
 
-    // Stap 4: Resultaten tonen
+    // Stap 4: Result opties kiezen
+    Route::get('/results/select', function () {
+        $selectedCourses = session('selected_courses', []);
+        $selectedModules = session('selected_modules', []);
+        $selectedAssignmentGroups = session('selected_assignment_groups', []);
+        $selectedUsers = session('selected_users', []);
+        return view('results.select', compact('selectedCourses', 'selectedModules', 'selectedAssignmentGroups', 'selectedUsers'));
+    })->name('results.select');
+
+    // Stap 5: Resultaten tonen
     Route::get('/results/progress', [ResultController::class, 'getSelectedProgress'])->name('results.progress');
 });
 

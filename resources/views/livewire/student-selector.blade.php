@@ -59,7 +59,7 @@
         <!-- Next Step Button - Fixed height section with reserved space -->
         <div class="mt-4 text-right h-10 flex items-start justify-end">
             @if(count($selectedUsers) > 0)
-                <button wire:click="showResult" class="px-4 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700">Volgende stap: Toon resultaat</button>
+                <button wire:click="showResult" class="px-4 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700">Volgende stap: Resultaat opties</button>
             @endif
         </div>
     </div>
