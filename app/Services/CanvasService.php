@@ -4,6 +4,7 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 
 class CanvasService
 {
@@ -53,22 +54,23 @@ class CanvasService
 
     public function getModules($courseId)
     {
-        try {
-            $response = Http::withOptions(['verify' => false])
-                ->withHeaders(['Authorization' => 'Bearer ' . $this->token])
-                ->get("{$this->baseUrl}/api/v1/courses/{$courseId}/modules", [
-                    'per_page' => 100,
-                ]);
-
-            if ($response->failed()) {
-                throw new \Exception('Fout bij het ophalen van modules');
+        $cacheKey = "canvas_modules_{$courseId}";
+        return Cache::remember($cacheKey, 600, function () use ($courseId) {
+            try {
+                $response = Http::withOptions(['verify' => false])
+                    ->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                    ->get("{$this->baseUrl}/api/v1/courses/{$courseId}/modules", [
+                        'per_page' => 100,
+                    ]);
+                if ($response->failed()) {
+                    throw new \Exception('Fout bij het ophalen van modules');
+                }
+                return $response->json();
+            } catch (\Exception $e) {
+                \Log::error('Canvas Service fout (modules)', ['message' => $e->getMessage()]);
+                return [];
             }
-
-            return $response->json();
-        } catch (\Exception $e) {
-            \Log::error('Canvas Service fout (modules)', ['message' => $e->getMessage()]);
-            return [];
-        }
+        });
     }
 
     public function getUsers($courseId)
