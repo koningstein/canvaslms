@@ -249,7 +249,7 @@
                     <a class="flex flex-row items-center justify-start px-4 py-4 block capitalize font-medium text-sm tracking-wide bg-white hover:bg-gray-200 transition-all duration-300 ease-in-out" href="#">
 
                         <div class="w-10 h-10 rounded-full overflow-hidden mr-3 bg-gray-100 border border-gray-300">
-                            <img class="w-full h-full object-cover" src="img/user1.jpg" alt="">
+{{--                            <img class="w-full h-full object-cover" src="img/user1.jpg" alt="">--}}
                         </div>
 
                         <div class="flex-1 flex flex-rowbg-green-100">
@@ -270,7 +270,7 @@
                     <a class="flex flex-row items-center justify-start px-4 py-4 block capitalize font-medium text-sm tracking-wide bg-white hover:bg-gray-200 transition-all duration-300 ease-in-out" href="#">
 
                         <div class="w-10 h-10 rounded-full overflow-hidden mr-3 bg-gray-100 border border-gray-300">
-                            <img class="w-full h-full object-cover" src="img/user2.jpg" alt="">
+{{--                            <img class="w-full h-full object-cover" src="img/user2.jpg" alt="">--}}
                         </div>
 
                         <div class="flex-1 flex flex-rowbg-green-100">
@@ -291,7 +291,7 @@
                     <a class="flex flex-row items-center justify-start px-4 py-4 block capitalize font-medium text-sm tracking-wide bg-white hover:bg-gray-200 transition-all duration-300 ease-in-out" href="#">
 
                         <div class="w-10 h-10 rounded-full overflow-hidden mr-3 bg-gray-100 border border-gray-300">
-                            <img class="w-full h-full object-cover" src="img/user3.jpg" alt="">
+{{--                            <img class="w-full h-full object-cover" src="img/user3.jpg" alt="">--}}
                         </div>
 
                         <div class="flex-1 flex flex-rowbg-green-100">
