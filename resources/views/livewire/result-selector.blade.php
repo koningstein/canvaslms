@@ -82,16 +82,19 @@
                             <div>
                                 <div class="font-medium">
                                     {{ $user['name'] ?? 'Onbekend' }}
-                                    @if(isset($user['id']))
-                                        ({{ $user['id'] }})
-                                    @endif
+                                    <span class="text-xs text-gray-600">
+                                        @if(isset($user['sis_user_id']) && $user['sis_user_id'])
+                                            ({{ $user['sis_user_id'] }})
+                                        @elseif(isset($user['login_id']))
+                                            ({{ $user['login_id'] }})
+                                        @else
+                                            ({{ $user['id'] }})
+                                        @endif
+                                    </span>
                                     @if(isset($user['section_name']))
-                                        <span class="text-blue-600">{{ $user['section_name'] }}</span>
+                                        <span class="text-xs text-blue-600 ml-2">- Sectie: {{ $user['section_name'] }}</span>
                                     @endif
                                 </div>
-                                @if(isset($user['email']) && $user['email'])
-                                    <div class="text-gray-600">{{ $user['email'] }}</div>
-                                @endif
                             </div>
                         </div>
                     @empty
