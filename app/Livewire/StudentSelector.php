@@ -11,6 +11,9 @@ class StudentSelector extends Component
     public $selectedModules = [];
     public $availableUsers = [];
     public $selectedUsers = [];
+    public $sections = [];
+    public $selectedSections = []; // Now an array
+    public $lastSelectedSectionId = null;
 
     protected CanvasService $canvasService;
 
@@ -23,21 +26,49 @@ class StudentSelector extends Component
     {
         $this->selectedCourses = $selectedCourses;
         $this->selectedModules = $selectedModules;
-        $this->loadUsers();
+        $this->loadUsersAndSections();
     }
 
-    public function loadUsers()
+    public function loadUsersAndSections()
     {
         $users = [];
+        $sections = [];
         foreach ($this->selectedCourses as $course) {
             $courseUsers = $this->canvasService->getUsers($course['id']);
             foreach ($courseUsers as $user) {
-                $users[] = array_merge($user, ['course_id' => $course['id'], 'course_name' => $course['name']]);
+                $users[$user['id']] = array_merge($user, ['course_id' => $course['id'], 'course_name' => $course['name']]);
+            }
+            $courseSections = $this->canvasService->getSections($course['id']);
+            foreach ($courseSections as $section) {
+                $sections[] = [
+                    'id' => $section['id'],
+                    'name' => $section['name'],
+                    'course_id' => $course['id'],
+                ];
             }
         }
+        $this->availableUsers = array_values($users);
+        $this->sections = $sections;
+    }
 
-        // Verwijder duplicaten op basis van e-mail of id
-        $this->availableUsers = collect($users)->unique('email')->values()->toArray();
+    public function selectAllUsersInSections()
+    {
+        if (empty($this->selectedSections)) return;
+        $usersInSections = [];
+        foreach ($this->selectedCourses as $course) {
+            foreach ($this->selectedSections as $sectionId) {
+                $sectionUsers = $this->canvasService->getUsersInSection($course['id'], $sectionId);
+                foreach ($sectionUsers as $user) {
+                    $usersInSections[$user['id']] = array_merge($user, ['course_id' => $course['id'], 'course_name' => $course['name']]);
+                }
+            }
+        }
+        foreach ($usersInSections as $user) {
+            if (!collect($this->selectedUsers)->contains('id', $user['id'])) {
+                $this->selectedUsers[] = $user;
+                $this->availableUsers = array_values(array_filter($this->availableUsers, fn($u) => $u['id'] != $user['id']));
+            }
+        }
     }
 
     public function selectUser($userIndex)
@@ -77,6 +108,31 @@ class StudentSelector extends Component
         ]);
 
         return redirect()->route('results.progress');
+    }
+
+    // Update method
+    public function selectAllUsersInSectionsButton($sectionId)
+    {
+        $this->lastSelectedSectionId = $sectionId;
+        $usersInSection = [];
+        foreach ($this->selectedCourses as $course) {
+            $sectionUsers = $this->canvasService->getUsersInSection($course['id'], $sectionId);
+            foreach ($sectionUsers as $user) {
+                $usersInSection[$user['id']] = array_merge($user, [
+                    'course_id' => $course['id'],
+                    'course_name' => $course['name']
+                ]);
+            }
+        }
+
+        // Only move users that are in availableUsers
+        $availableUsersById = collect($this->availableUsers)->keyBy('id');
+        foreach ($usersInSection as $userId => $user) {
+            if ($availableUsersById->has($userId)) {
+                $this->selectedUsers[] = $availableUsersById[$userId];
+                $this->availableUsers = array_values(array_filter($this->availableUsers, fn($u) => $u['id'] != $userId));
+            }
+        }
     }
 
     public function render()

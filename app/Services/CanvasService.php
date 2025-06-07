@@ -91,4 +91,50 @@ class CanvasService
             return [];
         }
     }
+
+    public function getSections($courseId)
+    {
+        try {
+            $response = \Http::withOptions(['verify' => false])
+                ->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                ->get("{$this->baseUrl}/api/v1/courses/{$courseId}/sections", [
+                    'per_page' => 100,
+                ]);
+            if ($response->failed()) {
+                throw new \Exception('Fout bij het ophalen van secties');
+            }
+            return $response->json();
+        } catch (\Exception $e) {
+            \Log::error('Canvas Service fout (sections)', ['message' => $e->getMessage()]);
+            return [];
+        }
+    }
+
+    public function getUsersInSection($courseId, $sectionId)
+    {
+        try {
+            $response = \Http::withOptions(['verify' => false])
+                ->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                ->get("{$this->baseUrl}/api/v1/sections/{$sectionId}/enrollments", [
+                    'per_page' => 100,
+                    'type' => ['StudentEnrollment'],
+                ]);
+            if ($response->failed()) {
+                throw new \Exception('Fout bij het ophalen van gebruikers in sectie');
+            }
+            // Map naar user array
+            return array_map(function ($enrollment) {
+                return [
+                    'id' => $enrollment['user_id'],
+                    'name' => $enrollment['user']['name'] ?? '',
+                    'email' => $enrollment['user']['login'] ?? '',
+                ];
+            }, $response->json());
+        } catch (\Exception $e) {
+            \Log::error('Canvas Service fout (users in section)', ['message' => $e->getMessage()]);
+            return [];
+        }
+    }
+
+
 }

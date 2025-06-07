@@ -21,6 +21,19 @@
     </div>
 
     <!-- User Selection Interface -->
+    <!-- Section Buttons (full width above both lists) -->
+    <div class="mb-4 flex flex-wrap gap-2 w-full">
+        @foreach($sections as $section)
+            <button
+                wire:click="selectAllUsersInSectionsButton('{{ $section['id'] }}')"
+                class="flex-1 min-w-[150px] px-2 py-2 text-xs rounded text-center
+                {{ $lastSelectedSectionId == $section['id'] ? 'bg-purple-800 text-white font-bold border-2 border-purple-900' : 'bg-purple-600 text-white hover:bg-purple-700' }}"
+            >
+                Select all from {{ $section['name'] }}
+            </button>
+        @endforeach
+    </div>
+
     <div class="flex gap-6">
         <!-- Available Users -->
         <div class="w-1/2">
