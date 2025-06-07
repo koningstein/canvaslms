@@ -24,18 +24,45 @@ Route::middleware('auth')->group(function () {
     Route::get('/courses', [CourseController::class, 'index'])->name('courses.index');
 });
 
-Route::middleware('auth')->get('/modules/select', function () {
-    $selectedCourses = session('selected_courses', []);
-    return view('modules.select', compact('selectedCourses'));
-})->name('modules.select');
+//Route::middleware('auth')->get('/modules/select', function () {
+//    $selectedCourses = session('selected_courses', []);
+//    return view('modules.select', compact('selectedCourses'));
+//})->name('modules.select');
+//
+//Route::middleware('auth')->get('/students/select', function () {
+//    $selectedCourses = session('selected_courses', []);
+//    return view('students.select', compact('selectedCourses'));
+//})->name('students.select');Route::middleware('auth')->get('/students/select', function () {
+//    $selectedCourses = session('selected_courses', []);
+//    return view('students.select', compact('selectedCourses'));
+//})->name('students.select');
+//Route::middleware('auth')->get('/results/progress', [ResultController::class, 'getSelectedProgress'])->name('results.progress');
 
-Route::middleware('auth')->get('/students/select', function () {
-    $selectedCourses = session('selected_courses', []);
-    return view('students.select', compact('selectedCourses'));
-})->name('students.select');Route::middleware('auth')->get('/students/select', function () {
-    $selectedCourses = session('selected_courses', []);
-    return view('students.select', compact('selectedCourses'));
-})->name('students.select');
-Route::middleware('auth')->get('/results/progress', [ResultController::class, 'getSelectedProgress'])->name('results.progress');
+// Multi-step wizard routes
+Route::middleware('auth')->group(function () {
+    // Stap 1: Modules selecteren
+    Route::get('/modules/select', function () {
+        $selectedCourses = session('selected_courses', []);
+        return view('modules.select', compact('selectedCourses'));
+    })->name('modules.select');
+
+    // Stap 2: Assignment Groups selecteren
+    Route::get('/assignment-groups/select', function () {
+        $selectedCourses = session('selected_courses', []);
+        $selectedModules = session('selected_modules', []);
+        return view('assignment-groups.select', compact('selectedCourses', 'selectedModules'));
+    })->name('assignment-groups.select');
+
+    // Stap 3: Students selecteren
+    Route::get('/students/select', function () {
+        $selectedCourses = session('selected_courses', []);
+        $selectedModules = session('selected_modules', []);
+        $selectedAssignmentGroups = session('selected_assignment_groups', []);
+        return view('students.select', compact('selectedCourses', 'selectedModules', 'selectedAssignmentGroups'));
+    })->name('students.select');
+
+    // Stap 4: Resultaten tonen
+    Route::get('/results/progress', [ResultController::class, 'getSelectedProgress'])->name('results.progress');
+});
 
 require __DIR__.'/auth.php';
