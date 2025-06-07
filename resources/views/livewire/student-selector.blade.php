@@ -91,7 +91,17 @@
             <ul class="border rounded p-2 min-h-[200px] bg-white">
                 @forelse($availableUsers as $i => $user)
                     <li class="flex justify-between items-center border-b py-1">
-                        <span class="truncate">{{ $user['name'] ?? 'Onbekende gebruiker' }} <span class="text-xs text-gray-600">({{ $user['email'] ?? $user['login_id'] ?? 'ID: ' . $user['id'] }})</span></span>
+                        <span class="truncate">{{ $user['name'] ?? 'Onbekende gebruiker' }}
+                            <span class="text-xs text-gray-600">
+                                @if(isset($user['sis_user_id']) && $user['sis_user_id'])
+                                    ({{ $user['sis_user_id'] }})
+                                @elseif(isset($user['login_id']))
+                                    ({{ $user['login_id'] }})
+                                @else
+                                    (ID: {{ $user['id'] }})
+                                @endif
+                            </span>
+                        </span>
                         <button wire:click="selectUser({{ $i }})" class="ml-2 px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700">→</button>
                     </li>
                 @empty
@@ -108,7 +118,15 @@
                         <div class="truncate flex-1">
                             <div class="truncate">
                                 <span class="font-medium">{{ $user['name'] ?? 'Onbekende gebruiker' }}</span>
-                                <span class="text-xs text-gray-600 ml-1">({{ $user['email'] ?? $user['login_id'] ?? 'ID: ' . $user['id'] }})</span>
+                                <span class="text-xs text-gray-600 ml-1">
+                                    @if(isset($user['sis_user_id']) && $user['sis_user_id'])
+                                        ({{ $user['sis_user_id'] }})
+                                    @elseif(isset($user['login_id']))
+                                        ({{ $user['login_id'] }})
+                                    @else
+                                        (ID: {{ $user['id'] }})
+                                    @endif
+                                </span>
                                 @if(isset($user['section_name']))
                                     <span class="text-xs text-blue-600 ml-2">- Sectie: {{ $user['section_name'] }}</span>
                                 @endif
