@@ -146,4 +146,61 @@ class CanvasService
             return [];
         }
     }
+
+    /**
+     * Haal alle secties op voor een cursus
+     */
+    public function getCourseSections($courseId)
+    {
+        $cacheKey = "canvas_sections_{$courseId}";
+        return Cache::remember($cacheKey, 600, function () use ($courseId) {
+            try {
+                $response = Http::withOptions(['verify' => false])
+                    ->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                    ->get("{$this->baseUrl}/api/v1/courses/{$courseId}/sections", [
+                        'per_page' => 100,
+                        'include[]' => 'students', // Include students in each section
+                    ]);
+
+                if ($response->failed()) {
+                    throw new \Exception('Fout bij het ophalen van secties');
+                }
+
+                return $response->json();
+            } catch (\Exception $e) {
+                \Log::error('Canvas Service fout (sections)', ['message' => $e->getMessage()]);
+                return [];
+            }
+        });
+    }
+
+    /**
+     * Haal gebruikers op voor een specifieke sectie
+     */
+    public function getSectionUsers($sectionId)
+    {
+        try {
+            $response = Http::withOptions(['verify' => false])
+                ->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                ->get("{$this->baseUrl}/api/v1/sections/{$sectionId}/enrollments", [
+                    'per_page' => 100,
+                    'type[]' => 'StudentEnrollment',
+                    'include[]' => 'user', // Include user details
+                ]);
+
+            if ($response->failed()) {
+                throw new \Exception('Fout bij het ophalen van sectie gebruikers');
+            }
+
+            // Extract users from enrollments
+            $enrollments = $response->json();
+            return array_map(function($enrollment) {
+                return $enrollment['user'];
+            }, $enrollments);
+
+        } catch (\Exception $e) {
+            \Log::error('Canvas Service fout (section users)', ['message' => $e->getMessage()]);
+            return [];
+        }
+    }
 }
