@@ -9,6 +9,7 @@ class StudentSelector extends Component
 {
     public $selectedCourses = [];
     public $selectedModules = [];
+    public $selectedAssignmentGroups = [];
     public $availableUsers = [];
     public $selectedUsers = [];
 
@@ -19,10 +20,11 @@ class StudentSelector extends Component
         $this->canvasService = $canvasService;
     }
 
-    public function mount($selectedCourses = [], $selectedModules = [])
+    public function mount($selectedCourses = [], $selectedModules = [], $selectedAssignmentGroups = [])
     {
         $this->selectedCourses = $selectedCourses;
         $this->selectedModules = $selectedModules;
+        $this->selectedAssignmentGroups = $selectedAssignmentGroups;
         $this->loadUsers();
     }
 
@@ -73,6 +75,7 @@ class StudentSelector extends Component
         session([
             'selected_courses' => $this->selectedCourses,
             'selected_modules' => $this->selectedModules,
+            'selected_assignment_groups' => $this->selectedAssignmentGroups,
             'selected_users' => $this->selectedUsers,
         ]);
 
