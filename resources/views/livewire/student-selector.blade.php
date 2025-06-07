@@ -1,4 +1,21 @@
 <div>
+    {{-- Flash Messages --}}
+    @if (session()->has('success'))
+        <div class="bg-green-400 text-green-800 rounded-lg shadow-md p-2 mb-2" style="min-width: 240px">
+            {{ session('success') }}
+        </div>
+    @endif
+    @if (session()->has('error'))
+        <div class="bg-red-400 text-red-800 rounded-lg shadow-md p-2 mb-2" style="min-width: 240px">
+            {{ session('error') }}
+        </div>
+    @endif
+    @if (session()->has('warning'))
+        <div class="bg-yellow-400 text-yellow-800 rounded-lg shadow-md p-2 mb-2" style="min-width: 240px">
+            {{ session('warning') }}
+        </div>
+    @endif
+
     <!-- Selected Courses, Modules and Assignment Groups -->
     <div class="mb-4">
         <h2 class="font-semibold text-lg mb-2">Geselecteerde cursussen:</h2>
@@ -39,7 +56,6 @@
             <div class="text-sm text-gray-500 italic ml-6">Geen opdracht groepen geselecteerd</div>
         @endif
 
-
         <!-- Next Step Button - Fixed height section with reserved space -->
         <div class="mt-4 text-right h-10 flex items-start justify-end">
             @if(count($selectedUsers) > 0)
@@ -49,13 +65,22 @@
     </div>
 
     <!-- Action Buttons - Fixed height section -->
-    <div class="mb-4 h-10 flex gap-2 items-start">
+    <div class="mb-4 flex gap-2 items-start flex-wrap">
         @if(count($availableUsers) > 0)
             <button wire:click="selectAllUsers" class="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">Selecteer alle gebruikers</button>
         @endif
         @if(count($selectedUsers) > 0)
             <button wire:click="deselectAllUsers" class="px-4 py-2 bg-red-600 text-white text-sm rounded hover:bg-red-700">Deselecteer alle gebruikers</button>
         @endif
+        @foreach($availableSections as $section)
+            <button
+                wire:click="selectUsersFromSection({{ $section['id'] }}, '{{ $section['name'] }}')"
+                class="px-4 py-2 bg-purple-600 text-white text-sm rounded hover:bg-purple-700 focus:outline-none"
+                title="Selecteer alle studenten uit sectie {{ $section['name'] }}"
+            >
+                Sectie: {{ $section['name'] }}
+            </button>
+        @endforeach
     </div>
 
     <!-- User Selection Interface -->
@@ -66,7 +91,7 @@
             <ul class="border rounded p-2 min-h-[200px] bg-white">
                 @forelse($availableUsers as $i => $user)
                     <li class="flex justify-between items-center border-b py-1">
-                        <span class="truncate">{{ $user['name'] ?? 'Onbekende gebruiker' }} <span class="text-xs text-gray-400">({{ $user['email'] }})</span></span>
+                        <span class="truncate">{{ $user['name'] ?? 'Onbekende gebruiker' }} <span class="text-xs text-gray-600">({{ $user['email'] ?? $user['login_id'] ?? 'ID: ' . $user['id'] }})</span></span>
                         <button wire:click="selectUser({{ $i }})" class="ml-2 px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700">→</button>
                     </li>
                 @empty
@@ -80,7 +105,15 @@
             <ul class="border rounded p-2 min-h-[200px] bg-white">
                 @forelse($selectedUsers as $i => $user)
                     <li class="flex justify-between items-center border-b py-1">
-                        <span class="truncate">{{ $user['name'] ?? 'Onbekende gebruiker' }} <span class="text-xs text-gray-400">({{ $user['email'] }})</span></span>
+                        <div class="truncate flex-1">
+                            <div class="truncate">
+                                <span class="font-medium">{{ $user['name'] ?? 'Onbekende gebruiker' }}</span>
+                                <span class="text-xs text-gray-600 ml-1">({{ $user['email'] ?? $user['login_id'] ?? 'ID: ' . $user['id'] }})</span>
+                                @if(isset($user['section_name']))
+                                    <span class="text-xs text-blue-600 ml-2">- Sectie: {{ $user['section_name'] }}</span>
+                                @endif
+                            </div>
+                        </div>
                         <button wire:click="deselectUser({{ $i }})" class="ml-2 px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700">←</button>
                     </li>
                 @empty
@@ -89,6 +122,4 @@
             </ul>
         </div>
     </div>
-
-
 </div>
