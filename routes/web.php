@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ResultController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -27,5 +28,14 @@ Route::middleware('auth')->get('/modules/select', function () {
     $selectedCourses = session('selected_courses', []);
     return view('modules.select', compact('selectedCourses'));
 })->name('modules.select');
+
+Route::middleware('auth')->get('/students/select', function () {
+    $selectedCourses = session('selected_courses', []);
+    return view('students.select', compact('selectedCourses'));
+})->name('students.select');Route::middleware('auth')->get('/students/select', function () {
+    $selectedCourses = session('selected_courses', []);
+    return view('students.select', compact('selectedCourses'));
+})->name('students.select');
+Route::middleware('auth')->get('/results/progress', [ResultController::class, 'getSelectedProgress'])->name('results.progress');
 
 require __DIR__.'/auth.php';

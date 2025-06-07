@@ -7,6 +7,16 @@
             @endforeach
         </ul>
     </div>
+    <div class="mt-4 text-right">
+        @if(count($selectedModules) > 0)
+        <button
+            wire:click="proceedToStudents"
+            class="px-4 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 focus:outline-none"
+        >
+            Volgende stap: Gebruikers kiezen
+        </button>
+        @endif
+    </div>
     <div class="flex gap-6">
         <!-- Available Modules -->
         <div class="w-1/2">
@@ -37,4 +47,5 @@
             </ul>
         </div>
     </div>
+
 </div>

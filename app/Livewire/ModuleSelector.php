@@ -52,6 +52,15 @@ class ModuleSelector extends Component
         $this->selectedModules = array_values($this->selectedModules);
     }
 
+    public function proceedToStudents()
+    {
+        session([
+            'selected_courses' => $this->selectedCourses,
+            'selected_modules' => $this->selectedModules,
+        ]);
+        return redirect()->route('students.select');
+    }
+
     public function render()
     {
         return view('livewire.module-selector');

@@ -70,4 +70,25 @@ class CanvasService
             return [];
         }
     }
+
+    public function getUsers($courseId)
+    {
+        try {
+            $response = Http::withOptions(['verify' => false])
+                ->withHeaders(['Authorization' => 'Bearer ' . $this->token])
+                ->get("{$this->baseUrl}/api/v1/courses/{$courseId}/users", [
+                    'per_page' => 100,
+                    'enrollment_type' => 'student',
+                ]);
+
+            if ($response->failed()) {
+                throw new \Exception('Fout bij het ophalen van gebruikers');
+            }
+
+            return $response->json();
+        } catch (\Exception $e) {
+            \Log::error('Canvas Service fout (users)', ['message' => $e->getMessage()]);
+            return [];
+        }
+    }
 }

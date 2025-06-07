@@ -350,7 +350,7 @@
                     transition ease-in-out duration-500">{{ __('Register') }}</a>
                 @endif
             @else
-                @hasanyrole('keyteacher|admin')
+
                 <!-- links for sales & admins -->
                 <p class="uppercase text-xs text-gray-600 mb-4 tracking-wider px-4">Algemeen</p>
                 <a href="}" class="mb-3  font-medium text-sm hover:text-teal-600 transition ease-in-out
