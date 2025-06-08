@@ -342,6 +342,111 @@ class ResultController extends Controller
         ];
     }
 
+    private function calculateMissingReportData($studentsProgress)
+    {
+        $totalStudents = $studentsProgress->count();
+        $totalAssignments = $studentsProgress->isNotEmpty() ? $studentsProgress->first()['assignments']->count() : 0;
+
+        // Count missing assignments (unsubmitted)
+        $totalMissing = $studentsProgress->sum(function($student) {
+            return $student['assignments']->where('status', 'unsubmitted')->count();
+        });
+
+        // Count insufficient assignments (graded but < 55%)
+        $totalInsufficient = $studentsProgress->sum(function($student) {
+            return $student['assignments']->filter(function($assignment) {
+                return $assignment['status'] === 'graded' &&
+                    isset($assignment['score']) &&
+                    isset($assignment['points_possible']) &&
+                    $assignment['points_possible'] > 0 &&
+                    ($assignment['score'] / $assignment['points_possible'] * 100) < 55;
+            })->count();
+        });
+
+        $totalProblematic = $totalMissing + $totalInsufficient;
+        $totalPossible = $totalStudents * $totalAssignments;
+        $problemRate = $totalPossible > 0 ? round(($totalProblematic / $totalPossible) * 100, 1) : 0;
+
+        // Students with any missing assignments
+        $studentsWithMissing = $studentsProgress->filter(function($student) {
+            return $student['assignments']->whereIn('display_value', ['Ontbreekt', 'Onvoldoende', 'Te laat'])->count() > 0;
+        });
+
+        // Count students with problems
+        $studentsWithProblemsCount = $studentsWithMissing->count();
+
+        // Get assignment groups for header
+        $assignmentGroups = [];
+        if ($studentsProgress->isNotEmpty()) {
+            $assignmentGroups = $studentsProgress->first()['assignments']->groupBy('module_name');
+        }
+
+        // Process students with problems - add all display logic here
+        $studentsWithProblems = $studentsWithMissing->map(function($student) use ($assignmentGroups) {
+            $problemCount = $student['assignments']->whereIn('display_value', ['Ontbreekt', 'Onvoldoende', 'Te laat'])->count();
+
+            // Process each assignment for this student
+            $processedAssignments = [];
+            foreach ($assignmentGroups as $moduleName => $assignments) {
+                foreach ($assignments as $assignment) {
+                    $studentAssignment = $student['assignments']->where('assignment_name', $assignment['assignment_name'])->first();
+
+                    $isProblematic = in_array($studentAssignment['display_value'] ?? '', ['Ontbreekt', 'Onvoldoende', 'Te laat']);
+
+                    // Check if assignment is late
+                    $isLate = false;
+                    if (isset($studentAssignment['submitted_at'], $studentAssignment['due_at'])) {
+                        $submittedAt = strtotime($studentAssignment['submitted_at']);
+                        $dueAt = strtotime($studentAssignment['due_at']);
+                        $isLate = $submittedAt > $dueAt;
+                    }
+
+                    // Determine cell color and display value
+                    $cellColor = $studentAssignment['color'] ?? 'bg-white';
+                    $displayValue = $studentAssignment['display_value'] ?? '';
+                    $showLateIcon = false;
+
+                    if ($isLate && in_array($studentAssignment['status'] ?? '', ['graded', 'submitted'])) {
+                        $cellColor = 'bg-yellow-300';
+                        $displayValue = 'Te laat';
+                        $showLateIcon = true;
+                    }
+
+                    // Only show problematic assignments
+                    if (!$isProblematic && !$isLate) {
+                        $cellColor = 'bg-white';
+                        $displayValue = '';
+                        $showLateIcon = false;
+                    }
+
+                    $processedAssignments[] = [
+                        'assignment_name' => $assignment['assignment_name'],
+                        'module_name' => $moduleName,
+                        'cell_color' => $cellColor,
+                        'display_value' => $displayValue,
+                        'show_late_icon' => $showLateIcon,
+                        'tooltip' => $assignment['assignment_name'] . ' - ' . $displayValue . ($isLate ? ' (Te laat ingeleverd)' : '')
+                    ];
+                }
+            }
+
+            $student['problem_count'] = $problemCount;
+            $student['processed_assignments'] = $processedAssignments;
+            return $student;
+        });
+
+        return [
+            'totalStudents' => $totalStudents,
+            'totalMissing' => $totalMissing,
+            'totalInsufficient' => $totalInsufficient,
+            'totalProblematic' => $totalProblematic,
+            'studentsWithProblemsCount' => $studentsWithProblemsCount,
+            'problemRate' => $problemRate,
+            'studentsWithProblems' => $studentsWithProblems,
+            'assignmentGroups' => $assignmentGroups
+        ];
+    }
+
     private function getAttentionColorStatus($submission, $status, $score, $grade, $pointsPossible)
     {
         // Highlight students who need attention
@@ -387,9 +492,23 @@ class ResultController extends Controller
             case 'percentages':
                 return view('results.percentages-report', $viewData);
             case 'missing':
-                return view('results.missing-report', $viewData);
+                $missingData = $this->calculateMissingReportData($studentsProgress);
+                return view('results.missing-report', array_merge($viewData, $missingData));
             case 'attention':
-                return view('results.attention-report', $viewData);
+//                // Voor attention rapport berekenen we de risico's in de controller
+//                $studentsWithRisk = $this->calculateAttentionRisks($studentsProgress);
+//                $urgentCount = $studentsWithRisk->where('risk_level', 'urgent')->count();
+//                $highCount = $studentsWithRisk->where('risk_level', 'high')->count();
+//                $mediumCount = $studentsWithRisk->where('risk_level', 'medium')->count();
+//
+//                return view('results.attention-report', [
+//                    'studentsProgress' => $studentsProgress,
+//                    'studentsWithRisk' => $studentsWithRisk,
+//                    'urgentCount' => $urgentCount,
+//                    'highCount' => $highCount,
+//                    'mediumCount' => $mediumCount,
+//                    'reportType' => $reportType
+//                ]);
             default:
                 return view('results.basic-color-report', $viewData);
         }
