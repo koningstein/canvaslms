@@ -154,9 +154,10 @@ class ResultController extends Controller
         }
     }
 
+    // ALLE METHODES GEBRUIKEN NU CONSISTENTE KLEUREN (GEBASEERD OP PERCENTAGE RAPPORT)
     private function getBasicColorStatus($submission, $status, $score, $grade, $pointsPossible, $submissionTypes = [])
     {
-        $color = 'bg-red-300'; // Default red for unsubmitted
+        $color = 'bg-orange-200'; // Consistent: niet ingeleverd
         $displayValue = '';
 
         // Check if this is a non-submittable assignment (no submission types or contains 'none')
@@ -168,7 +169,7 @@ class ResultController extends Controller
             (!empty($grade) && $grade !== 'null');
 
         if ($submission['excused'] ?? false) {
-            $color = 'bg-gray-300';
+            $color = 'bg-purple-200';
             $status = 'excused';
             $displayValue = 'Vrijgesteld';
         } elseif ($hasGrade) {
@@ -176,29 +177,29 @@ class ResultController extends Controller
             if ($pointsPossible > 0) {
                 $percentage = ($score / $pointsPossible) * 100;
                 if ($percentage >= 75) {
-                    $color = 'bg-green-400';
+                    $color = 'bg-green-200';
                     $displayValue = 'Goed';
                 } elseif ($percentage >= 55) {
-                    $color = 'bg-yellow-400';
+                    $color = 'bg-yellow-200';
                     $displayValue = 'Voldoende';
                 } else {
-                    $color = 'bg-orange-400';
+                    $color = 'bg-red-200';
                     $displayValue = 'Onvoldoende';
                 }
             } else {
                 // Pass/Fail assignment
-                $color = $grade === 'complete' ? 'bg-green-400' : 'bg-orange-400';
+                $color = $grade === 'complete' ? 'bg-green-200' : 'bg-red-200';
                 $displayValue = $grade === 'complete' ? 'Voltooid' : 'Niet voltooid';
             }
         } elseif ($status === 'submitted') {
-            $color = 'bg-blue-400';
+            $color = 'bg-blue-200';
             $displayValue = 'Ingeleverd';
         } elseif ($isNonSubmittable) {
             // Only show "no submission" if there's no grade yet and it's not submittable
             $color = 'bg-gray-200';
             $displayValue = 'Geen inlevering';
         } else {
-            $color = 'bg-red-300';
+            $color = 'bg-orange-200';
             $displayValue = 'Niet ingeleverd';
         }
 
@@ -218,8 +219,8 @@ class ResultController extends Controller
         $isNonSubmittable = empty($submissionTypes) || in_array('none', $submissionTypes);
 
         if ($submission['excused'] ?? false) {
-            $color = 'bg-gray-300';
-            $displayValue = 'Vrijgesteld';
+            $color = 'bg-purple-200';
+            $displayValue = ''; // GEEN TEKST MEER
         } elseif ($status === 'graded' && $score !== null) {
             // Show actual score for graded assignments
             $displayValue = number_format($score, 1);
@@ -236,19 +237,19 @@ class ResultController extends Controller
             } else {
                 // For pass/fail assignments
                 $color = $grade === 'complete' ? 'bg-green-200' : 'bg-red-200';
-                $displayValue = $grade === 'complete' ? 'Voltooid' : 'Niet voltooid';
+                $displayValue = $grade === 'complete' ? '✓' : '✗';
             }
         } elseif ($status === 'submitted') {
             $color = 'bg-blue-200';
-            $displayValue = 'Ingeleverd';
+            $displayValue = ''; // GEEN TEKST MEER - kleur zegt genoeg
         } elseif ($isNonSubmittable && ($pointsPossible ?? 0) > 0) {
             // Non-submittable assignment without grade
-            $color = 'bg-gray-200';
-            $displayValue = 'Nog geen cijfer';
+            $color = 'bg-orange-200';
+            $displayValue = ''; // GEEN TEKST MEER - kleur zegt genoeg
         } else {
             // Regular assignment not submitted
-            $color = 'bg-gray-200';
-            $displayValue = 'Niet ingeleverd';
+            $color = 'bg-orange-200';
+            $displayValue = '-';
         }
 
         return [
@@ -268,7 +269,7 @@ class ResultController extends Controller
 
         if ($submission['excused'] ?? false) {
             $color = 'bg-purple-200';
-            $displayValue = 'Vrijgesteld';
+            $displayValue = ''; // GEEN TEKST MEER
         } elseif ($status === 'graded' && $score !== null && $pointsPossible > 0) {
             $percentage = ($score / $pointsPossible) * 100;
             $displayValue = number_format($percentage, 0) . '%';
@@ -286,11 +287,11 @@ class ResultController extends Controller
             $displayValue = $grade === 'complete' ? '100%' : '0%';
         } elseif ($status === 'submitted') {
             $color = 'bg-blue-200';
-            $displayValue = '0%';
+            $displayValue = ''; // GEEN TEKST MEER - kleur zegt genoeg
         } elseif ($isNonSubmittable && ($pointsPossible ?? 0) > 0) {
             // Non-submittable assignment without grade
             $color = 'bg-orange-200';
-            $displayValue = '0%';
+            $displayValue = ''; // GEEN TEKST MEER - kleur zegt genoeg
         } else {
             // Regular assignment not submitted
             $color = 'bg-orange-200';
@@ -304,11 +305,9 @@ class ResultController extends Controller
         ];
     }
 
-    // Vervang de getMissingColorStatus methode in ResultController.php
-
     private function getMissingColorStatus($submission, $status, $score, $grade, $pointsPossible, $submissionTypes = [])
     {
-        // Only show missing/incomplete assignments and late submissions
+        // Only show missing/incomplete assignments and late submissions - MAAR MET CONSISTENTE KLEUREN
         $color = 'bg-white';
         $displayValue = '';
 
@@ -341,27 +340,27 @@ class ResultController extends Controller
             ];
         }
 
-        // Check for unsubmitted assignments
+        // Check for unsubmitted assignments - GEBRUIK CONSISTENTE KLEUR
         if ($status === 'unsubmitted' || $status === 'pending_review') {
-            $color = 'bg-red-400';
+            $color = 'bg-orange-200'; // Consistent met "Niet ingeleverd"
             $displayValue = 'Ontbreekt';
         }
-        // Check for insufficient grades
+        // Check for insufficient grades - GEBRUIK CONSISTENTE KLEUR
         elseif ($status === 'graded' && $score !== null && $pointsPossible > 0) {
             $percentage = ($score / $pointsPossible) * 100;
             if ($percentage < 55) {
-                $color = 'bg-orange-400';
+                $color = 'bg-red-200'; // Consistent met "Onvoldoende"
                 $displayValue = 'Onvoldoende';
             }
             // Even sufficient grades show as late if submitted late
             elseif ($isLate) {
-                $color = 'bg-yellow-300';
+                $color = 'bg-yellow-200'; // Consistent kleur voor "te laat"
                 $displayValue = 'Te laat';
             }
         }
         // Check for late submissions (even if graded sufficiently)
         elseif ($isLate && in_array($status, ['submitted', 'graded'])) {
-            $color = 'bg-yellow-300';
+            $color = 'bg-yellow-200'; // Consistent kleur voor "te laat"
             $displayValue = 'Te laat';
         }
 
@@ -372,6 +371,49 @@ class ResultController extends Controller
         ];
     }
 
+    private function getAttentionColorStatus($submission, $status, $score, $grade, $pointsPossible, $submissionTypes = [])
+    {
+        // Voor attention rapport gebruiken we een eenvoudigere kleurlogica - MAAR CONSISTENT
+        $color = 'bg-white';
+        $displayValue = '';
+
+        // Excused assignments don't show as risky
+        if ($submission['excused'] ?? false) {
+            return [
+                'color' => 'bg-white',
+                'status' => 'excused',
+                'display_value' => ''
+            ];
+        }
+
+        // Check submission types
+        $isNonSubmittable = empty($submissionTypes) || in_array('none', $submissionTypes);
+
+        if ($status === 'unsubmitted' && !$isNonSubmittable) {
+            $color = 'bg-red-200'; // Consistent: rood voor problemen
+            $displayValue = 'Hulp nodig';
+        } elseif ($status === 'graded' && $pointsPossible > 0) {
+            $percentage = ($score / $pointsPossible) * 100;
+            if ($percentage < 55) {
+                $color = 'bg-red-200'; // Consistent: rood voor onvoldoende
+                $displayValue = 'Extra begeleiding';
+            } elseif ($percentage < 75) {
+                $color = 'bg-yellow-200'; // Consistent: geel voor voldoende maar niet goed
+                $displayValue = 'Aandacht';
+            }
+        } elseif ($status === 'submitted') {
+            $color = 'bg-blue-200'; // Consistent: blauw voor ingeleverd
+            $displayValue = 'Nakijken';
+        }
+
+        return [
+            'color' => $color,
+            'status' => $status,
+            'display_value' => $displayValue
+        ];
+    }
+
+    // Rest van de methodes blijven hetzelfde...
     private function calculateMissingReportData($studentsProgress)
     {
         $totalStudents = $studentsProgress->count();
@@ -437,7 +479,7 @@ class ResultController extends Controller
                     $showLateIcon = false;
 
                     if ($isLate && in_array($studentAssignment['status'] ?? '', ['graded', 'submitted'])) {
-                        $cellColor = 'bg-yellow-300';
+                        $cellColor = 'bg-yellow-200'; // Consistent kleur
                         $displayValue = 'Te laat';
                         $showLateIcon = true;
                     }
@@ -476,49 +518,6 @@ class ResultController extends Controller
             'assignmentGroups' => $assignmentGroups
         ];
     }
-
-    private function getAttentionColorStatus($submission, $status, $score, $grade, $pointsPossible)
-    {
-        // Voor attention rapport gebruiken we een eenvoudigere kleurlogica
-        $color = 'bg-white';
-        $displayValue = '';
-
-        // Excused assignments don't show as risky
-        if ($submission['excused'] ?? false) {
-            return [
-                'color' => 'bg-white',
-                'status' => 'excused',
-                'display_value' => ''
-            ];
-        }
-
-        // Check submission types
-        $isNonSubmittable = empty($submissionTypes) || in_array('none', $submissionTypes);
-
-        if ($status === 'unsubmitted' && !$isNonSubmittable) {
-            $color = 'bg-red-400';
-            $displayValue = 'Hulp nodig';
-        } elseif ($status === 'graded' && $pointsPossible > 0) {
-            $percentage = ($score / $pointsPossible) * 100;
-            if ($percentage < 55) {
-                $color = 'bg-orange-400';
-                $displayValue = 'Extra begeleiding';
-            } elseif ($percentage < 75) {
-                $color = 'bg-yellow-400';
-                $displayValue = 'Aandacht';
-            }
-        } elseif ($status === 'submitted') {
-            $color = 'bg-blue-300';
-            $displayValue = 'Nakijken';
-        }
-
-        return [
-            'color' => $color,
-            'status' => $status,
-            'display_value' => $displayValue
-        ];
-    }
-
 
     private function calculateAttentionRisks($studentsProgress)
     {
