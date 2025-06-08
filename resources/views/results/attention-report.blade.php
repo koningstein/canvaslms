@@ -17,103 +17,6 @@
         </div>
     </div>
 
-    @php
-        $studentsWithRisk = collect();
-
-        foreach($studentsProgress as $student) {
-            $missing = 0;
-            $insufficient = 0;
-            $needsGrading = 0;
-            $needsReview = 0;
-            $late = 0;
-
-            foreach($student['assignments'] as $assignment) {
-                if (isset($assignment['excused']) && $assignment['excused']) continue;
-
-                $submissionTypes = $assignment['submission_types'] ?? [];
-                $isNonSubmittable = empty($submissionTypes) || in_array('none', $submissionTypes);
-                $hasGrade = ($assignment['status'] === 'graded') ||
-                    ($assignment['score'] !== null && $assignment['score'] > 0) ||
-                    (!empty($assignment['grade']) && $assignment['grade'] !== 'null');
-
-                // Count missing (submittable but not submitted)
-                if (!$isNonSubmittable && $assignment['status'] === 'unsubmitted') {
-                    $missing++;
-                }
-
-                // Count insufficient grades
-                if ($assignment['status'] === 'graded' &&
-                    isset($assignment['score']) &&
-                    isset($assignment['points_possible']) &&
-                    $assignment['points_possible'] > 0 &&
-                    ($assignment['score'] / $assignment['points_possible'] * 100) < 55) {
-                    $insufficient++;
-                }
-
-                // Count non-submittable assignments needing grading
-                if ($isNonSubmittable && !$hasGrade && ($assignment['points_possible'] ?? 0) > 0) {
-                    $needsGrading++;
-                }
-
-                // Count submitted assignments needing review
-                if ($assignment['status'] === 'submitted') {
-                    $needsReview++;
-                }
-
-                // Count late submissions (only if result is still problematic)
-                if (isset($assignment['submitted_at']) && isset($assignment['due_at'])) {
-                    $submittedAt = strtotime($assignment['submitted_at']);
-                    $dueAt = strtotime($assignment['due_at']);
-                    $isLate = $submittedAt > $dueAt;
-
-                    if ($isLate) {
-                        $isStillProblematic = false;
-
-                        if ($assignment['status'] === 'submitted') {
-                            $isStillProblematic = true;
-                        } elseif ($assignment['status'] === 'graded' &&
-                                  isset($assignment['score']) &&
-                                  isset($assignment['points_possible']) &&
-                                  $assignment['points_possible'] > 0) {
-                            $percentage = ($assignment['score'] / $assignment['points_possible']) * 100;
-                            if ($percentage < 55) {
-                                $isStillProblematic = true;
-                            }
-                        }
-
-                        if ($isStillProblematic) {
-                            $late++;
-                        }
-                    }
-                }
-            }
-
-            // Calculate risk score
-            $riskScore = ($missing * 5) + ($insufficient * 4) + ($needsGrading * 2) + ($late * 1) + ($needsReview * 1);
-
-            if ($riskScore > 0) {
-                $riskLevel = $riskScore >= 8 ? 'urgent' : ($riskScore >= 4 ? 'high' : 'medium');
-
-                $studentsWithRisk->push([
-                    'student' => $student,
-                    'risk_score' => $riskScore,
-                    'risk_level' => $riskLevel,
-                    'missing' => $missing,
-                    'insufficient' => $insufficient,
-                    'needs_grading' => $needsGrading,
-                    'needs_review' => $needsReview,
-                    'late' => $late
-                ]);
-            }
-        }
-
-        $studentsWithRisk = $studentsWithRisk->sortByDesc('risk_score');
-
-        $urgentCount = $studentsWithRisk->where('risk_level', 'urgent')->count();
-        $highCount = $studentsWithRisk->where('risk_level', 'high')->count();
-        $mediumCount = $studentsWithRisk->where('risk_level', 'medium')->count();
-    @endphp
-
     <div class="mb-6 grid grid-cols-6 gap-3">
         <div class="bg-white p-3 rounded-lg shadow border text-center">
             <div class="text-xl font-bold text-red-600">{{ $urgentCount }}</div>
@@ -145,16 +48,20 @@
         <div class="grid grid-cols-3 gap-4 text-sm">
             <div class="flex items-center gap-2">
                 <div class="w-4 h-4 bg-red-500 rounded"></div>
-                <span><strong>Urgent (≥8)</strong> - Directe actie</span>
+                <span><strong>Urgent (≥5)</strong> - Meerdere echte problemen</span>
             </div>
             <div class="flex items-center gap-2">
                 <div class="w-4 h-4 bg-orange-500 rounded"></div>
-                <span><strong>Hoog (4-7)</strong> - Deze week contact</span>
+                <span><strong>Hoog (3-4)</strong> - Enkele problemen, aanspreken</span>
             </div>
             <div class="flex items-center gap-2">
                 <div class="w-4 h-4 bg-yellow-500 rounded"></div>
-                <span><strong>Gemiddeld (1-3)</strong> - Monitor</span>
+                <span><strong>Gemiddeld (1-2)</strong> - Administratief/nakijken</span>
             </div>
+        </div>
+        <div class="mt-3 text-xs text-gray-600">
+            <strong>Scoreverdeling:</strong> Ontbreekt (3 punten), Onvoldoende (3 of 1 punt*), Te laat/Te beoordelen/Nog geen cijfer (1 punt)<br>
+            <strong>Slimme scoring:</strong> *Onvoldoende niet-inleverbare opdrachten in groepen met inleveringen krijgen slechts 1 punt
         </div>
     </div>
 
@@ -266,107 +173,42 @@
 
                         <td class="px-4 py-3">
                             <div class="text-xs space-y-1 max-w-md">
-                                @php
-                                    $missingList = [];
-                                    $insufficientList = [];
-                                    $needsGradingList = [];
-                                    $lateList = [];
-
-                                    foreach($student['assignments'] as $assignment) {
-                                        if (isset($assignment['excused']) && $assignment['excused']) continue;
-
-                                        $submissionTypes = $assignment['submission_types'] ?? [];
-                                        $isNonSubmittable = empty($submissionTypes) || in_array('none', $submissionTypes);
-
-                                        // Missing assignments
-                                        if (!$isNonSubmittable && $assignment['status'] === 'unsubmitted') {
-                                            $missingList[] = $assignment['assignment_name'];
-                                        }
-
-                                        // Insufficient grades
-                                        if ($assignment['status'] === 'graded' &&
-                                            isset($assignment['score']) &&
-                                            isset($assignment['points_possible']) &&
-                                            $assignment['points_possible'] > 0 &&
-                                            ($assignment['score'] / $assignment['points_possible'] * 100) < 55) {
-                                            $percentage = round(($assignment['score'] / $assignment['points_possible']) * 100);
-                                            $insufficientList[] = $assignment['assignment_name'] . ' (' . $percentage . '%)';
-                                        }
-
-                                        // Late submissions (only problematic ones)
-                                        if (isset($assignment['submitted_at']) && isset($assignment['due_at'])) {
-                                            $submittedAt = strtotime($assignment['submitted_at']);
-                                            $dueAt = strtotime($assignment['due_at']);
-                                            $isLate = $submittedAt > $dueAt;
-
-                                            if ($isLate) {
-                                                $isStillProblematic = false;
-
-                                                if ($assignment['status'] === 'submitted') {
-                                                    $isStillProblematic = true;
-                                                } elseif ($assignment['status'] === 'graded' &&
-                                                          isset($assignment['score']) &&
-                                                          isset($assignment['points_possible']) &&
-                                                          $assignment['points_possible'] > 0) {
-                                                    $percentage = ($assignment['score'] / $assignment['points_possible']) * 100;
-                                                    if ($percentage < 55) {
-                                                        $isStillProblematic = true;
-                                                    }
-                                                }
-
-                                                if ($isStillProblematic) {
-                                                    $lateList[] = $assignment['assignment_name'];
-                                                }
-                                            }
-                                        }
-
-                                        // Needs grading
-                                        $hasGrade = ($assignment['status'] === 'graded') ||
-                                            ($assignment['score'] !== null && $assignment['score'] > 0) ||
-                                            (!empty($assignment['grade']) && $assignment['grade'] !== 'null');
-
-                                        if ($isNonSubmittable && !$hasGrade && ($assignment['points_possible'] ?? 0) > 0) {
-                                            $needsGradingList[] = $assignment['assignment_name'];
-                                        }
-                                    }
-                                @endphp
-
-                                @if(count($missingList) > 0)
+                                @if(count($studentRisk['missing_list']) > 0)
                                     <div class="text-red-700">
                                         <strong>Ontbreekt:</strong>
-                                        {{ implode(', ', array_slice($missingList, 0, 3)) }}
-                                        @if(count($missingList) > 3)
-                                            <span class="text-red-500"> +{{ count($missingList) - 3 }} meer</span>
+                                        {{ implode(', ', array_slice($studentRisk['missing_list'], 0, 3)) }}
+                                        @if(count($studentRisk['missing_list']) > 3)
+                                            <span class="text-red-500"> +{{ count($studentRisk['missing_list']) - 3 }} meer</span>
                                         @endif
                                     </div>
                                 @endif
 
-                                @if(count($insufficientList) > 0)
+                                @if(count($studentRisk['insufficient_list']) > 0)
                                     <div class="text-orange-700">
                                         <strong>Onvoldoende:</strong>
-                                        {{ implode(', ', array_slice($insufficientList, 0, 2)) }}
-                                        @if(count($insufficientList) > 2)
-                                            <span class="text-orange-500"> +{{ count($insufficientList) - 2 }} meer</span>
+                                        {{ implode(', ', array_slice($studentRisk['insufficient_list'], 0, 2)) }}
+                                        @if(count($studentRisk['insufficient_list']) > 2)
+                                            <span class="text-orange-500"> +{{ count($studentRisk['insufficient_list']) - 2 }} meer</span>
                                         @endif
                                     </div>
                                 @endif
 
-                                @if(count($lateList) > 0)
+                                @if(count($studentRisk['late_list']) > 0)
                                     <div class="text-yellow-700">
                                         <strong>Te laat & problematisch:</strong>
-                                        {{ implode(', ', array_slice($lateList, 0, 2)) }}
-                                        @if(count($lateList) > 2)
-                                            <span class="text-yellow-500"> +{{ count($lateList) - 2 }} meer</span>
+                                        {{ implode(', ', array_slice($studentRisk['late_list'], 0, 2)) }}
+                                        @if(count($studentRisk['late_list']) > 2)
+                                            <span class="text-yellow-500"> +{{ count($studentRisk['late_list']) - 2 }} meer</span>
                                         @endif
                                     </div>
                                 @endif
 
-                                @if(count($needsGradingList) > 0)
+                                @if(count($studentRisk['needs_grading_list']) > 0)
                                     <div class="text-purple-700">
                                         <strong>Nog geen cijfer:</strong>
-                                        {{ implode(', ', array_slice($needsGradingList, 0, 2)) }}
-                                        @if(count($needsGradingList) > 2)
-                                            <span class="text-purple-500"> +{{ count($needsGradingList) - 2 }} meer</span>
+                                        {{ implode(', ', array_slice($studentRisk['needs_grading_list'], 0, 2)) }}
+                                        @if(count($studentRisk['needs_grading_list']) > 2)
+                                            <span class="text-purple-500"> +{{ count($studentRisk['needs_grading_list']) - 2 }} meer</span>
                                         @endif
                                     </div>
                                 @endif
