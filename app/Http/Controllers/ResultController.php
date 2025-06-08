@@ -342,13 +342,25 @@ class ResultController extends Controller
         ];
     }
 
-    private function getAttentionColorStatus($submission, $status, $score, $grade, $pointsPossible)
+    private function getAttentionColorStatus($submission, $status, $score, $grade, $pointsPossible, $submissionTypes = [])
     {
-        // Highlight students who need attention
+        // Voor attention rapport gebruiken we een eenvoudigere kleurlogica
         $color = 'bg-white';
         $displayValue = '';
 
-        if ($status === 'unsubmitted') {
+        // Excused assignments don't show as risky
+        if ($submission['excused'] ?? false) {
+            return [
+                'color' => 'bg-white',
+                'status' => 'excused',
+                'display_value' => ''
+            ];
+        }
+
+        // Check submission types
+        $isNonSubmittable = empty($submissionTypes) || in_array('none', $submissionTypes);
+
+        if ($status === 'unsubmitted' && !$isNonSubmittable) {
             $color = 'bg-red-400';
             $displayValue = 'Hulp nodig';
         } elseif ($status === 'graded' && $pointsPossible > 0) {
@@ -372,6 +384,173 @@ class ResultController extends Controller
         ];
     }
 
+
+    private function calculateAttentionRisks($studentsProgress)
+    {
+        $studentsWithRisk = collect();
+
+        foreach($studentsProgress as $student) {
+            $missing = 0;
+            $insufficient = 0;
+            $needsGrading = 0;
+            $needsReview = 0;
+            $late = 0;
+
+            // Lists for detailed view
+            $missingList = [];
+            $insufficientList = [];
+            $needsGradingList = [];
+            $lateList = [];
+
+            // Group assignments by assignment group to detect linked assignments
+            $assignmentsByGroup = [];
+            foreach($student['assignments'] as $assignment) {
+                $groupName = $assignment['assignment_group_name'] ?? 'Unknown';
+                if (!isset($assignmentsByGroup[$groupName])) {
+                    $assignmentsByGroup[$groupName] = [];
+                }
+                $assignmentsByGroup[$groupName][] = $assignment;
+            }
+
+            foreach($assignmentsByGroup as $groupName => $assignments) {
+                // Check if this group has any submitted/graded assignments
+                $hasSubmissions = false;
+                foreach($assignments as $assignment) {
+                    if (in_array($assignment['status'], ['submitted', 'graded'])) {
+                        $hasSubmissions = true;
+                        break;
+                    }
+                }
+
+                foreach($assignments as $assignment) {
+                    if (isset($assignment['excused']) && $assignment['excused']) continue;
+
+                    $submissionTypes = $assignment['submission_types'] ?? [];
+                    $isNonSubmittable = empty($submissionTypes) || in_array('none', $submissionTypes);
+                    $hasGrade = ($assignment['status'] === 'graded') ||
+                        ($assignment['score'] !== null && $assignment['score'] > 0) ||
+                        (!empty($assignment['grade']) && $assignment['grade'] !== 'null');
+
+                    // Count missing (submittable but not submitted)
+                    if (!$isNonSubmittable && $assignment['status'] === 'unsubmitted') {
+                        $missing++;
+                        $missingList[] = $assignment['assignment_name'];
+                    }
+
+                    // Count insufficient grades - all show as insufficient, but scoring differs
+                    if ($assignment['status'] === 'graded' &&
+                        isset($assignment['score']) &&
+                        isset($assignment['points_possible']) &&
+                        $assignment['points_possible'] > 0 &&
+                        ($assignment['score'] / $assignment['points_possible'] * 100) < 55) {
+
+                        // Always count as insufficient for display
+                        $insufficient++;
+                        $percentage = round(($assignment['score'] / $assignment['points_possible']) * 100);
+                        $insufficientList[] = $assignment['assignment_name'] . ' (' . $percentage . '%)';
+                    }
+
+                    // Count non-submittable assignments needing grading
+                    if ($isNonSubmittable && !$hasGrade && ($assignment['points_possible'] ?? 0) > 0) {
+                        $needsGrading++;
+                        $needsGradingList[] = $assignment['assignment_name'];
+                    }
+
+                    // Count submitted assignments needing review
+                    if ($assignment['status'] === 'submitted') {
+                        $needsReview++;
+                    }
+
+                    // Count late submissions (only if result is still problematic)
+                    if (isset($assignment['submitted_at']) && isset($assignment['due_at'])) {
+                        $submittedAt = strtotime($assignment['submitted_at']);
+                        $dueAt = strtotime($assignment['due_at']);
+                        $isLate = $submittedAt > $dueAt;
+
+                        if ($isLate) {
+                            $isStillProblematic = false;
+
+                            if ($assignment['status'] === 'submitted') {
+                                $isStillProblematic = true;
+                            } elseif ($assignment['status'] === 'graded' &&
+                                isset($assignment['score']) &&
+                                isset($assignment['points_possible']) &&
+                                $assignment['points_possible'] > 0) {
+                                $percentage = ($assignment['score'] / $assignment['points_possible']) * 100;
+                                if ($percentage < 55) {
+                                    $isStillProblematic = true;
+                                }
+                            }
+
+                            if ($isStillProblematic) {
+                                $late++;
+                                $lateList[] = $assignment['assignment_name'];
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Smart risk calculation: lower score for insufficient in groups with submissions
+            $insufficientRiskScore = 0;
+            foreach($assignmentsByGroup as $groupName => $assignments) {
+                $hasSubmissions = false;
+                foreach($assignments as $assignment) {
+                    if (in_array($assignment['status'], ['submitted', 'graded'])) {
+                        $hasSubmissions = true;
+                        break;
+                    }
+                }
+
+                foreach($assignments as $assignment) {
+                    if (isset($assignment['excused']) && $assignment['excused']) continue;
+
+                    $submissionTypes = $assignment['submission_types'] ?? [];
+                    $isNonSubmittable = empty($submissionTypes) || in_array('none', $submissionTypes);
+
+                    if ($assignment['status'] === 'graded' &&
+                        isset($assignment['score']) &&
+                        isset($assignment['points_possible']) &&
+                        $assignment['points_possible'] > 0 &&
+                        ($assignment['score'] / $assignment['points_possible'] * 100) < 55) {
+
+                        // Lower risk score if this is a non-submittable in group with submissions
+                        if ($isNonSubmittable && $hasSubmissions) {
+                            $insufficientRiskScore += 1; // Lower weight
+                        } else {
+                            $insufficientRiskScore += 3; // Normal weight
+                        }
+                    }
+                }
+            }
+
+            // Calculate total risk score
+            $riskScore = ($missing * 3) + $insufficientRiskScore + ($late * 1) + ($needsGrading * 1) + ($needsReview * 1);
+
+            if ($riskScore > 0) {
+                // Adjusted thresholds for realistic urgency
+                $riskLevel = $riskScore >= 5 ? 'urgent' : ($riskScore >= 3 ? 'high' : 'medium');
+
+                $studentsWithRisk->push([
+                    'student' => $student,
+                    'risk_score' => $riskScore,
+                    'risk_level' => $riskLevel,
+                    'missing' => $missing,
+                    'insufficient' => $insufficient,
+                    'needs_grading' => $needsGrading,
+                    'needs_review' => $needsReview,
+                    'late' => $late,
+                    'missing_list' => $missingList,
+                    'insufficient_list' => $insufficientList,
+                    'needs_grading_list' => $needsGradingList,
+                    'late_list' => $lateList
+                ]);
+            }
+        }
+
+        return $studentsWithRisk->sortByDesc('risk_score');
+    }
+
     private function renderReportView($reportType, $studentsProgress)
     {
         $viewData = [
@@ -389,7 +568,20 @@ class ResultController extends Controller
             case 'missing':
                 return view('results.missing-report', $viewData);
             case 'attention':
-                return view('results.attention-report', $viewData);
+                // Voor attention rapport berekenen we de risico's in de controller
+                $studentsWithRisk = $this->calculateAttentionRisks($studentsProgress);
+                $urgentCount = $studentsWithRisk->where('risk_level', 'urgent')->count();
+                $highCount = $studentsWithRisk->where('risk_level', 'high')->count();
+                $mediumCount = $studentsWithRisk->where('risk_level', 'medium')->count();
+
+                return view('results.attention-report', [
+                    'studentsProgress' => $studentsProgress,
+                    'studentsWithRisk' => $studentsWithRisk,
+                    'urgentCount' => $urgentCount,
+                    'highCount' => $highCount,
+                    'mediumCount' => $mediumCount,
+                    'reportType' => $reportType
+                ]);
             default:
                 return view('results.basic-color-report', $viewData);
         }
