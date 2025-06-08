@@ -86,6 +86,7 @@ class ResultController extends Controller
                             $assignmentId = $assignment['content_id'];
                             $assignmentDetails = $allAssignments[$courseId]->get($assignmentId);
                             $pointsPossible = $assignmentDetails['points_possible'] ?? 1;
+                            $submissionTypes = $assignmentDetails['submission_types'] ?? [];
 
                             $submissionResponse = Http::withOptions(['verify' => false])
                                 ->withHeaders(['Authorization' => 'Bearer ' . env('CANVAS_API_TOKEN')])
@@ -98,7 +99,7 @@ class ResultController extends Controller
                             $grade = strtolower($submission['grade'] ?? '');
 
                             // Color and status logic based on report type
-                            $colorAndStatus = $this->getColorAndStatus($submission, $status, $score, $grade, $pointsPossible, $reportType, $assignmentDetails);
+                            $colorAndStatus = $this->getColorAndStatus($submission, $status, $score, $grade, $pointsPossible, $reportType, $assignmentDetails, $submissionTypes);
 
                             $assignmentsStatuses->push([
                                 'assignment_name' => $assignment['title'] ?? "Assignment {$assignmentId}",
@@ -126,8 +127,6 @@ class ResultController extends Controller
                 ]);
             }
 
-            dd($studentsProgress);
-
             // Choose the appropriate view based on report type
             return $this->renderReportView($reportType, $studentsProgress);
 
@@ -137,34 +136,43 @@ class ResultController extends Controller
         }
     }
 
-    private function getColorAndStatus($submission, $status, $score, $grade, $pointsPossible, $reportType, $assignmentDetails)
+    private function getColorAndStatus($submission, $status, $score, $grade, $pointsPossible, $reportType, $assignmentDetails, $submissionTypes = [])
     {
         switch ($reportType) {
             case 'basic':
-                return $this->getBasicColorStatus($submission, $status, $score, $grade, $pointsPossible);
+                return $this->getBasicColorStatus($submission, $status, $score, $grade, $pointsPossible, $submissionTypes);
             case 'grades':
-                return $this->getGradeColorStatus($submission, $status, $score, $grade, $pointsPossible);
+                return $this->getGradeColorStatus($submission, $status, $score, $grade, $pointsPossible, $submissionTypes);
             case 'percentages':
-                return $this->getPercentageColorStatus($submission, $status, $score, $grade, $pointsPossible);
+                return $this->getPercentageColorStatus($submission, $status, $score, $grade, $pointsPossible, $submissionTypes);
             case 'missing':
-                return $this->getMissingColorStatus($submission, $status, $score, $grade, $pointsPossible);
+                return $this->getMissingColorStatus($submission, $status, $score, $grade, $pointsPossible, $submissionTypes);
             case 'attention':
-                return $this->getAttentionColorStatus($submission, $status, $score, $grade, $pointsPossible);
+                return $this->getAttentionColorStatus($submission, $status, $score, $grade, $pointsPossible, $submissionTypes);
             default:
-                return $this->getBasicColorStatus($submission, $status, $score, $grade, $pointsPossible);
+                return $this->getBasicColorStatus($submission, $status, $score, $grade, $pointsPossible, $submissionTypes);
         }
     }
 
-    private function getBasicColorStatus($submission, $status, $score, $grade, $pointsPossible)
+    private function getBasicColorStatus($submission, $status, $score, $grade, $pointsPossible, $submissionTypes = [])
     {
         $color = 'bg-red-300'; // Default red for unsubmitted
         $displayValue = '';
+
+        // Check if this is a non-submittable assignment (no submission types or contains 'none')
+        $isNonSubmittable = empty($submissionTypes) || in_array('none', $submissionTypes);
+
+        // Check if there's actually a grade/score assigned
+        $hasGrade = ($status === 'graded') ||
+            ($score !== null && $score > 0) ||
+            (!empty($grade) && $grade !== 'null');
 
         if ($submission['excused'] ?? false) {
             $color = 'bg-gray-300';
             $status = 'excused';
             $displayValue = 'Vrijgesteld';
-        } elseif ($status === 'graded') {
+        } elseif ($hasGrade) {
+            // There's an actual grade/score assigned
             if ($pointsPossible > 0) {
                 $percentage = ($score / $pointsPossible) * 100;
                 if ($percentage >= 75) {
@@ -185,6 +193,10 @@ class ResultController extends Controller
         } elseif ($status === 'submitted') {
             $color = 'bg-blue-400';
             $displayValue = 'Ingeleverd';
+        } elseif ($isNonSubmittable) {
+            // Only show "no submission" if there's no grade yet and it's not submittable
+            $color = 'bg-gray-200';
+            $displayValue = 'Geen inlevering';
         } else {
             $color = 'bg-red-300';
             $displayValue = 'Niet ingeleverd';
