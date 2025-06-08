@@ -258,14 +258,16 @@ class ResultController extends Controller
         ];
     }
 
-    private function getPercentageColorStatus($submission, $status, $score, $grade, $pointsPossible)
+    private function getPercentageColorStatus($submission, $status, $score, $grade, $pointsPossible, $submissionTypes = [])
     {
-        // Implementation for percentage report
-        $color = 'bg-gray-200';
-        $displayValue = '-';
+        $color = 'bg-orange-200';
+        $displayValue = '0%';
+
+        // Check if this is a non-submittable assignment
+        $isNonSubmittable = empty($submissionTypes) || in_array('none', $submissionTypes);
 
         if ($submission['excused'] ?? false) {
-            $color = 'bg-gray-300';
+            $color = 'bg-purple-200';
             $displayValue = 'Vrijgesteld';
         } elseif ($status === 'graded' && $score !== null && $pointsPossible > 0) {
             $percentage = ($score / $pointsPossible) * 100;
@@ -278,9 +280,21 @@ class ResultController extends Controller
             } else {
                 $color = 'bg-red-200';
             }
+        } elseif ($status === 'graded' && $pointsPossible == 0) {
+            // Pass/fail assignment
+            $color = $grade === 'complete' ? 'bg-green-200' : 'bg-red-200';
+            $displayValue = $grade === 'complete' ? '100%' : '0%';
         } elseif ($status === 'submitted') {
             $color = 'bg-blue-200';
-            $displayValue = 'Ingeleverd';
+            $displayValue = '0%';
+        } elseif ($isNonSubmittable && ($pointsPossible ?? 0) > 0) {
+            // Non-submittable assignment without grade
+            $color = 'bg-orange-200';
+            $displayValue = '0%';
+        } else {
+            // Regular assignment not submitted
+            $color = 'bg-orange-200';
+            $displayValue = '0%';
         }
 
         return [
@@ -774,6 +788,112 @@ class ResultController extends Controller
         ];
     }
 
+    private function calculatePercentagesReportData($studentsProgress)
+    {
+        $totalStudents = $studentsProgress->count();
+        $totalAssignments = $studentsProgress->isNotEmpty() ? $studentsProgress->first()['assignments']->count() : 0;
+
+        // Calculate graded assignments and percentages
+        $totalGradedAssignments = 0;
+        $totalPercentageSum = 0;
+        $totalCompletionCount = 0;
+
+        foreach ($studentsProgress as $student) {
+            foreach ($student['assignments'] as $assignment) {
+                if ($assignment['status'] === 'graded' &&
+                    isset($assignment['score']) &&
+                    isset($assignment['points_possible']) &&
+                    $assignment['points_possible'] > 0) {
+                    $totalGradedAssignments++;
+                    $percentage = ($assignment['score'] / $assignment['points_possible']) * 100;
+                    $totalPercentageSum += $percentage;
+                }
+
+                // Count completion (submitted or graded)
+                if (in_array($assignment['status'], ['submitted', 'graded'])) {
+                    $totalCompletionCount++;
+                }
+            }
+        }
+
+        $averagePercentage = $totalGradedAssignments > 0 ? round($totalPercentageSum / $totalGradedAssignments, 1) : 0;
+        $totalPossibleCompletions = $totalStudents * $totalAssignments;
+        $completionRate = $totalPossibleCompletions > 0 ? round(($totalCompletionCount / $totalPossibleCompletions) * 100, 1) : 0;
+
+        // Get assignment groups for header
+        $assignmentGroups = [];
+        if ($studentsProgress->isNotEmpty()) {
+            $assignmentGroups = $studentsProgress->first()['assignments']->groupBy('module_name')->map(function ($assignments) {
+                return $assignments->map(function ($assignment) {
+                    return [
+                        'assignment_name' => $assignment['assignment_name'],
+                        'assignment_id' => $assignment['assignment_id'],
+                        'points_possible' => $assignment['points_possible'] ?? 0,
+                    ];
+                });
+            });
+        }
+
+        // Process students with percentage information
+        $studentsWithPercentages = $studentsProgress->map(function ($student) use ($assignmentGroups, $totalAssignments) {
+            $processedAssignments = [];
+            $studentPercentageSum = 0;
+            $studentGradedCount = 0;
+
+            foreach ($assignmentGroups as $moduleName => $assignments) {
+                foreach ($assignments as $assignment) {
+                    $studentAssignment = $student['assignments']->where('assignment_name', $assignment['assignment_name'])->first();
+
+                    $score = $studentAssignment['score'] ?? 0;
+                    $pointsPossible = $assignment['points_possible'];
+                    $status = $studentAssignment['status'] ?? 'unsubmitted';
+                    $color = $studentAssignment['color'] ?? 'bg-gray-200';
+                    $displayValue = $studentAssignment['display_value'] ?? '-';
+
+                    // Calculate tooltip information
+                    $tooltip = $assignment['assignment_name'];
+                    if ($status === 'graded' && is_numeric($score) && $pointsPossible > 0) {
+                        $percentage = round(($score / $pointsPossible) * 100, 1);
+                        $tooltip .= " - {$percentage}% ({$score}/{$pointsPossible} punten)";
+
+                        // Add to student average calculation
+                        $studentPercentageSum += $percentage;
+                        $studentGradedCount++;
+                    } else {
+                        $tooltip .= " - {$displayValue}";
+                    }
+
+                    $processedAssignments[] = [
+                        'assignment_name' => $assignment['assignment_name'],
+                        'module_name' => $moduleName,
+                        'color' => $color,
+                        'display_value' => $displayValue,
+                        'tooltip' => $tooltip,
+                    ];
+                }
+            }
+
+            $studentAveragePercentage = $studentGradedCount > 0 ? round($studentPercentageSum / $studentGradedCount, 1) : 0;
+
+            $student['processed_assignments'] = $processedAssignments;
+            $student['average_percentage'] = $studentAveragePercentage;
+            $student['graded_count'] = $studentGradedCount;
+            $student['total_assignments'] = $totalAssignments;
+
+            return $student;
+        });
+
+        return [
+            'totalStudents' => $totalStudents,
+            'totalAssignments' => $totalAssignments,
+            'totalGradedAssignments' => $totalGradedAssignments,
+            'averagePercentage' => $averagePercentage,
+            'completionRate' => $completionRate,
+            'assignmentGroups' => $assignmentGroups,
+            'studentsWithPercentages' => $studentsWithPercentages,
+        ];
+    }
+
     private function renderReportView($reportType, $studentsProgress)
     {
         $viewData = [
@@ -788,7 +908,8 @@ class ResultController extends Controller
                 $gradesData = $this->calculateGradesReportData($studentsProgress);
                 return view('results.grades-report', array_merge($viewData, $gradesData));
             case 'percentages':
-                return view('results.percentages-report', $viewData);
+                $percentagesData = $this->calculatePercentagesReportData($studentsProgress);
+                return view('results.percentages-report', array_merge($viewData, $percentagesData));
             case 'missing':
                 $missingData = $this->calculateMissingReportData($studentsProgress);
                 return view('results.missing-report', array_merge($viewData, $missingData));
