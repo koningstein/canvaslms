@@ -274,21 +274,65 @@ class ResultController extends Controller
         ];
     }
 
-    private function getMissingColorStatus($submission, $status, $score, $grade, $pointsPossible)
+    // Vervang de getMissingColorStatus methode in ResultController.php
+
+    private function getMissingColorStatus($submission, $status, $score, $grade, $pointsPossible, $submissionTypes = [])
     {
-        // Only show missing/incomplete assignments
+        // Only show missing/incomplete assignments and late submissions
         $color = 'bg-white';
         $displayValue = '';
 
+        // Check if assignment was submitted late
+        $isLate = false;
+        if (isset($submission['submitted_at'], $submission['due_at'])) {
+            $submittedAt = strtotime($submission['submitted_at']);
+            $dueAt = strtotime($submission['due_at']);
+            $isLate = $submittedAt > $dueAt;
+        }
+
+        // Check if this is a non-submittable assignment
+        $isNonSubmittable = empty($submissionTypes) || in_array('none', $submissionTypes);
+
+        // Excused assignments don't show as missing
+        if ($submission['excused'] ?? false) {
+            return [
+                'color' => 'bg-white',
+                'status' => 'excused',
+                'display_value' => ''
+            ];
+        }
+
+        // Non-submittable assignments without grades don't count as missing
+        if ($isNonSubmittable && !($status === 'graded' && $score !== null)) {
+            return [
+                'color' => 'bg-white',
+                'status' => $status,
+                'display_value' => ''
+            ];
+        }
+
+        // Check for unsubmitted assignments
         if ($status === 'unsubmitted' || $status === 'pending_review') {
-            $color = 'bg-red-300';
+            $color = 'bg-red-400';
             $displayValue = 'Ontbreekt';
-        } elseif ($status === 'graded' && $pointsPossible > 0) {
+        }
+        // Check for insufficient grades
+        elseif ($status === 'graded' && $score !== null && $pointsPossible > 0) {
             $percentage = ($score / $pointsPossible) * 100;
             if ($percentage < 55) {
-                $color = 'bg-orange-300';
+                $color = 'bg-orange-400';
                 $displayValue = 'Onvoldoende';
             }
+            // Even sufficient grades show as late if submitted late
+            elseif ($isLate) {
+                $color = 'bg-yellow-300';
+                $displayValue = 'Te laat';
+            }
+        }
+        // Check for late submissions (even if graded sufficiently)
+        elseif ($isLate && in_array($status, ['submitted', 'graded'])) {
+            $color = 'bg-yellow-300';
+            $displayValue = 'Te laat';
         }
 
         return [
