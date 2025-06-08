@@ -149,6 +149,8 @@ class ResultController extends Controller
                 return $this->getMissingColorStatus($submission, $status, $score, $grade, $pointsPossible, $submissionTypes);
             case 'attention':
                 return $this->getAttentionColorStatus($submission, $status, $score, $grade, $pointsPossible, $submissionTypes);
+            case 'averages':
+                return $this->getAverageColorStatus($submission, $status, $score, $grade, $pointsPossible, $submissionTypes);
             default:
                 return $this->getBasicColorStatus($submission, $status, $score, $grade, $pointsPossible, $submissionTypes);
         }
@@ -404,6 +406,52 @@ class ResultController extends Controller
         } elseif ($status === 'submitted') {
             $color = 'bg-blue-200'; // Consistent: blauw voor ingeleverd
             $displayValue = 'Nakijken';
+        }
+
+        return [
+            'color' => $color,
+            'status' => $status,
+            'display_value' => $displayValue
+        ];
+    }
+
+    private function getAverageColorStatus($submission, $status, $score, $grade, $pointsPossible, $submissionTypes = [])
+    {
+        $color = 'bg-orange-200';
+        $displayValue = '-';
+
+        // Check if this is a non-submittable assignment
+        $isNonSubmittable = empty($submissionTypes) || in_array('none', $submissionTypes);
+
+        if ($submission['excused'] ?? false) {
+            $color = 'bg-purple-200';
+            $displayValue = ''; // Geen tekst
+        } elseif ($status === 'graded' && $score !== null && $pointsPossible > 0) {
+            $percentage = ($score / $pointsPossible) * 100;
+            $displayValue = number_format($percentage, 0) . '%';
+
+            if ($percentage >= 75) {
+                $color = 'bg-green-200';
+            } elseif ($percentage >= 55) {
+                $color = 'bg-yellow-200';
+            } else {
+                $color = 'bg-red-200';
+            }
+        } elseif ($status === 'graded' && $pointsPossible == 0) {
+            // Pass/fail assignment
+            $color = $grade === 'complete' ? 'bg-green-200' : 'bg-red-200';
+            $displayValue = $grade === 'complete' ? '100%' : '0%';
+        } elseif ($status === 'submitted') {
+            $color = 'bg-blue-200';
+            $displayValue = ''; // Geen tekst - kleur zegt genoeg
+        } elseif ($isNonSubmittable && ($pointsPossible ?? 0) > 0) {
+            // Non-submittable assignment without grade
+            $color = 'bg-orange-200';
+            $displayValue = ''; // Geen tekst - kleur zegt genoeg
+        } else {
+            // Regular assignment not submitted
+            $color = 'bg-orange-200';
+            $displayValue = '-';
         }
 
         return [
@@ -893,6 +941,392 @@ class ResultController extends Controller
         ];
     }
 
+    private function calculateAveragesReportData($studentsProgress)
+    {
+        $totalStudents = $studentsProgress->count();
+        $totalAssignments = $studentsProgress->isNotEmpty() ? $studentsProgress->first()['assignments']->count() : 0;
+
+        // Process students with average information
+        $studentsWithAverages = $studentsProgress->map(function ($student, $index) use ($totalAssignments) {
+            $studentPercentageSum = 0;
+            $studentGradedCount = 0;
+
+            foreach ($student['assignments'] as $assignment) {
+                if ($assignment['status'] === 'graded' &&
+                    isset($assignment['score']) &&
+                    isset($assignment['points_possible']) &&
+                    $assignment['points_possible'] > 0) {
+
+                    $percentage = ($assignment['score'] / $assignment['points_possible']) * 100;
+                    $studentPercentageSum += $percentage;
+                    $studentGradedCount++;
+                }
+            }
+
+            $studentAveragePercentage = $studentGradedCount > 0 ? round($studentPercentageSum / $studentGradedCount, 1) : 0;
+
+            $student['average_percentage'] = $studentAveragePercentage;
+            $student['graded_count'] = $studentGradedCount;
+            $student['total_assignments'] = $totalAssignments;
+
+            return $student;
+        })->sortByDesc('average_percentage');
+
+        // Calculate overall statistics
+        $allStudentAverages = $studentsWithAverages->where('graded_count', '>', 0)->pluck('average_percentage');
+        $overallClassAverage = $allStudentAverages->count() > 0 ? round($allStudentAverages->avg(), 1) : 0;
+        $highestStudentAverage = $allStudentAverages->count() > 0 ? $allStudentAverages->max() : 0;
+        $lowestStudentAverage = $allStudentAverages->count() > 0 ? $allStudentAverages->min() : 0;
+
+        // Performance distribution
+        $studentsAbove75 = $allStudentAverages->where('>=', 75)->count();
+        $studentsAbove55 = $allStudentAverages->where('>=', 55)->where('<', 75)->count();
+        $studentsBelow55 = $allStudentAverages->where('<', 55)->count();
+
+        // Top and low performers
+        $topPerformers = $studentsWithAverages->where('average_percentage', '>=', 75)->take(10)->values();
+        $lowPerformers = $studentsWithAverages->where('average_percentage', '<', 55)->take(10)->values();
+
+        // Assignment analysis
+        $assignmentAnalysis = $this->calculateAssignmentAnalysis($studentsProgress);
+
+        // Chart data
+        $chartData = $this->prepareChartData($studentsWithAverages, $assignmentAnalysis);
+
+        // Trend analysis
+        $trendData = $this->calculateTrendData($studentsProgress);
+
+        // Generate insights
+        $insights = $this->generateInsights($studentsWithAverages, $assignmentAnalysis, $overallClassAverage);
+
+        return [
+            'totalStudents' => $totalStudents,
+            'totalAssignments' => $totalAssignments,
+            'overallClassAverage' => $overallClassAverage,
+            'highestStudentAverage' => $highestStudentAverage,
+            'lowestStudentAverage' => $lowestStudentAverage,
+            'studentsAbove75' => $studentsAbove75,
+            'studentsAbove55' => $studentsAbove55,
+            'studentsBelow55' => $studentsBelow55,
+            'topPerformers' => $topPerformers,
+            'lowPerformers' => $lowPerformers,
+            'assignmentAnalysis' => $assignmentAnalysis,
+            'chartData' => $chartData,
+            'trendData' => $trendData,
+            'insights' => $insights,
+        ];
+    }
+
+    private function calculateAssignmentAnalysis($studentsProgress)
+    {
+        $totalStudents = $studentsProgress->count();
+        $assignmentAnalysis = [];
+
+        if ($studentsProgress->isEmpty()) {
+            return $assignmentAnalysis;
+        }
+
+        // Group assignments by module
+        $allAssignments = $studentsProgress->first()['assignments']->groupBy('module_name');
+
+        foreach ($allAssignments as $moduleName => $assignments) {
+            foreach ($assignments as $assignment) {
+                $assignmentName = $assignment['assignment_name'];
+                $pointsPossible = $assignment['points_possible'] ?? 1;
+
+                $gradedCount = 0;
+                $percentageSum = 0;
+                $scores = [];
+
+                foreach ($studentsProgress as $student) {
+                    $studentAssignment = $student['assignments']->where('assignment_name', $assignmentName)->first();
+
+                    if ($studentAssignment &&
+                        $studentAssignment['status'] === 'graded' &&
+                        isset($studentAssignment['score']) &&
+                        $pointsPossible > 0) {
+
+                        $percentage = ($studentAssignment['score'] / $pointsPossible) * 100;
+                        $percentageSum += $percentage;
+                        $scores[] = $percentage;
+                        $gradedCount++;
+                    }
+                }
+
+                $averagePercentage = $gradedCount > 0 ? round($percentageSum / $gradedCount, 1) : 0;
+                $completionPercentage = round(($gradedCount / $totalStudents) * 100, 1);
+
+                // Determine colors and status
+                $averageColor = 'bg-gray-100 text-gray-800';
+                $displayValue = '-';
+
+                if ($gradedCount > 0) {
+                    $displayValue = $averagePercentage . '%';
+                    if ($averagePercentage >= 75) {
+                        $averageColor = 'bg-green-100 text-green-800';
+                    } elseif ($averagePercentage >= 55) {
+                        $averageColor = 'bg-yellow-100 text-yellow-800';
+                    } else {
+                        $averageColor = 'bg-red-100 text-red-800';
+                    }
+                }
+
+                // Status based on completion
+                $statusColor = 'bg-gray-100 text-gray-800';
+                $statusText = 'Niet gestart';
+
+                if ($completionPercentage >= 80) {
+                    $statusColor = 'bg-green-100 text-green-800';
+                    $statusText = 'Compleet';
+                } elseif ($completionPercentage >= 50) {
+                    $statusColor = 'bg-blue-100 text-blue-800';
+                    $statusText = 'Bezig';
+                } elseif ($completionPercentage > 0) {
+                    $statusColor = 'bg-yellow-100 text-yellow-800';
+                    $statusText = 'Gestart';
+                }
+
+                // Difficulty assessment
+                $difficultyColor = 'bg-gray-100 text-gray-800';
+                $difficultyText = 'Onbekend';
+
+                if ($gradedCount >= 3) { // Need at least 3 grades to assess difficulty
+                    if ($averagePercentage >= 80) {
+                        $difficultyColor = 'bg-green-100 text-green-800';
+                        $difficultyText = 'Makkelijk';
+                    } elseif ($averagePercentage >= 65) {
+                        $difficultyColor = 'bg-blue-100 text-blue-800';
+                        $difficultyText = 'Gemiddeld';
+                    } elseif ($averagePercentage >= 50) {
+                        $difficultyColor = 'bg-orange-100 text-orange-800';
+                        $difficultyText = 'Moeilijk';
+                    } else {
+                        $difficultyColor = 'bg-red-100 text-red-800';
+                        $difficultyText = 'Zeer moeilijk';
+                    }
+                }
+
+                $assignmentAnalysis[] = [
+                    'assignment_name' => $assignmentName,
+                    'module_name' => $moduleName,
+                    'average_percentage' => $averagePercentage,
+                    'graded_count' => $gradedCount,
+                    'total_students' => $totalStudents,
+                    'completion_percentage' => $completionPercentage,
+                    'average_color' => $averageColor,
+                    'display_value' => $displayValue,
+                    'status_color' => $statusColor,
+                    'status_text' => $statusText,
+                    'difficulty_color' => $difficultyColor,
+                    'difficulty_text' => $difficultyText,
+                ];
+            }
+        }
+
+        // Sort by average percentage (lowest first for attention)
+        usort($assignmentAnalysis, function($a, $b) {
+            if ($a['graded_count'] == 0 && $b['graded_count'] == 0) return 0;
+            if ($a['graded_count'] == 0) return 1;
+            if ($b['graded_count'] == 0) return -1;
+            return $a['average_percentage'] <=> $b['average_percentage'];
+        });
+
+        return $assignmentAnalysis;
+    }
+
+    private function prepareChartData($studentsWithAverages, $assignmentAnalysis)
+    {
+        // Student performance data (top 15 for readability)
+        $topStudents = $studentsWithAverages->where('graded_count', '>', 0)->take(15);
+
+        $studentNames = [];
+        $studentPerformances = [];
+        $studentColors = [];
+
+        foreach ($topStudents as $student) {
+            $studentNames[] = $student['student_name'];
+            $studentPerformances[] = $student['average_percentage'];
+
+            if ($student['average_percentage'] >= 75) {
+                $studentColors[] = '#10B981'; // Green
+            } elseif ($student['average_percentage'] >= 55) {
+                $studentColors[] = '#F59E0B'; // Yellow
+            } else {
+                $studentColors[] = '#EF4444'; // Red
+            }
+        }
+
+        // Performance distribution
+        $distributionLabels = ['Goed (≥75%)', 'Voldoende (55-74%)', 'Onvoldoende (<55%)'];
+        $studentsAbove75 = $studentsWithAverages->where('average_percentage', '>=', 75)->count();
+        $studentsAbove55 = $studentsWithAverages->where('average_percentage', '>=', 55)->where('average_percentage', '<', 75)->count();
+        $studentsBelow55 = $studentsWithAverages->where('average_percentage', '<', 55)->count();
+        $distributionValues = [$studentsAbove75, $studentsAbove55, $studentsBelow55];
+
+        // Module performance data - alle opdrachten individueel tonen
+        $modulePerformances = [];
+        $moduleNames = [];
+        $moduleColors = [];
+
+        // Toon alle opdrachten individueel (zoals in de tabel)
+        foreach ($assignmentAnalysis as $assignment) {
+            if ($assignment['graded_count'] > 0) {
+                $shortName = strlen($assignment['assignment_name']) > 20 ?
+                    substr($assignment['assignment_name'], 0, 17) . '...' :
+                    $assignment['assignment_name'];
+
+                $moduleNames[] = $shortName;
+                $modulePerformances[] = $assignment['average_percentage'];
+
+                if ($assignment['average_percentage'] >= 75) {
+                    $moduleColors[] = '#10B981'; // Groen
+                } elseif ($assignment['average_percentage'] >= 55) {
+                    $moduleColors[] = '#F59E0B'; // Geel
+                } else {
+                    $moduleColors[] = '#EF4444'; // Rood
+                }
+            }
+        }
+
+        // Als we te veel opdrachten hebben, neem alleen de eerste 12
+        if (count($moduleNames) > 12) {
+            $moduleNames = array_slice($moduleNames, 0, 12);
+            $modulePerformances = array_slice($modulePerformances, 0, 12);
+            $moduleColors = array_slice($moduleColors, 0, 12);
+        }
+
+        return [
+            'studentNames' => $studentNames,
+            'studentPerformances' => $studentPerformances,
+            'studentColors' => $studentColors,
+            'distributionLabels' => $distributionLabels,
+            'distributionValues' => $distributionValues,
+            'moduleNames' => $moduleNames,
+            'modulePerformances' => $modulePerformances,
+            'moduleColors' => $moduleColors,
+        ];
+    }
+
+    private function calculateTrendData($studentsProgress)
+    {
+        // Simple trend based on submission dates
+        $trendData = [];
+
+        if ($studentsProgress->isEmpty()) {
+            return $trendData;
+        }
+
+        $submissionsByDate = [];
+
+        foreach ($studentsProgress as $student) {
+            foreach ($student['assignments'] as $assignment) {
+                if (isset($assignment['submitted_at']) &&
+                    $assignment['status'] === 'graded' &&
+                    isset($assignment['score']) &&
+                    isset($assignment['points_possible']) &&
+                    $assignment['points_possible'] > 0) {
+
+                    $date = date('Y-m-d', strtotime($assignment['submitted_at']));
+                    $percentage = ($assignment['score'] / $assignment['points_possible']) * 100;
+
+                    if (!isset($submissionsByDate[$date])) {
+                        $submissionsByDate[$date] = [];
+                    }
+
+                    $submissionsByDate[$date][] = $percentage;
+                }
+            }
+        }
+
+        // Calculate daily averages
+        $dates = [];
+        $values = [];
+
+        ksort($submissionsByDate);
+        foreach ($submissionsByDate as $date => $percentages) {
+            if (count($percentages) >= 2) { // Only include dates with multiple submissions
+                $dates[] = date('d-m', strtotime($date));
+                $values[] = round(array_sum($percentages) / count($percentages), 1);
+            }
+        }
+
+        return [
+            'dates' => $dates,
+            'values' => $values
+        ];
+    }
+
+    private function generateInsights($studentsWithAverages, $assignmentAnalysis, $overallClassAverage)
+    {
+        $performanceInsights = [];
+        $assignmentInsights = [];
+
+        // Performance insights
+        $studentsWithGrades = $studentsWithAverages->where('graded_count', '>', 0);
+        $totalStudents = $studentsWithGrades->count();
+
+        if ($totalStudents > 0) {
+            $above75 = $studentsWithGrades->where('average_percentage', '>=', 75)->count();
+            $below55 = $studentsWithGrades->where('average_percentage', '<', 55)->count();
+
+            $above75Percentage = round(($above75 / $totalStudents) * 100);
+            $below55Percentage = round(($below55 / $totalStudents) * 100);
+
+            if ($overallClassAverage >= 75) {
+                $performanceInsights[] = "Uitstekende klasprestatie met een gemiddelde van {$overallClassAverage}%";
+            } elseif ($overallClassAverage >= 65) {
+                $performanceInsights[] = "Goede klasprestatie met een gemiddelde van {$overallClassAverage}%";
+            } elseif ($overallClassAverage >= 55) {
+                $performanceInsights[] = "Voldoende klasprestatie met een gemiddelde van {$overallClassAverage}%";
+            } else {
+                $performanceInsights[] = "Klas gemiddelde van {$overallClassAverage}% vereist extra aandacht";
+            }
+
+            if ($above75Percentage >= 50) {
+                $performanceInsights[] = "{$above75Percentage}% van de studenten presteert goed (≥75%)";
+            }
+
+            if ($below55Percentage > 0) {
+                $performanceInsights[] = "{$below55Percentage}% van de studenten heeft extra begeleiding nodig (<55%)";
+            }
+
+            if ($below55Percentage == 0) {
+                $performanceInsights[] = "Geen studenten onder de 55% - geweldige resultaten!";
+            }
+        }
+
+        // Assignment insights
+        $assignmentsWithGrades = collect($assignmentAnalysis)->where('graded_count', '>', 0);
+
+        if ($assignmentsWithGrades->count() > 0) {
+            $difficultAssignments = $assignmentsWithGrades->where('average_percentage', '<', 60);
+            $easyAssignments = $assignmentsWithGrades->where('average_percentage', '>=', 80);
+
+            if ($difficultAssignments->count() > 0) {
+                $assignmentInsights[] = $difficultAssignments->count() . " opdracht(en) hebben lage gemiddelden (<60%)";
+            }
+
+            if ($easyAssignments->count() > 0) {
+                $assignmentInsights[] = $easyAssignments->count() . " opdracht(en) worden goed beheerst (≥80%)";
+            }
+
+            $incompleteAssignments = collect($assignmentAnalysis)->where('completion_percentage', '<', 50);
+            if ($incompleteAssignments->count() > 0) {
+                $assignmentInsights[] = $incompleteAssignments->count() . " opdracht(en) hebben lage inleverpercentages";
+            }
+
+            $mostDifficult = $assignmentsWithGrades->sortBy('average_percentage')->first();
+            if ($mostDifficult && $mostDifficult['average_percentage'] < 65) {
+                $assignmentInsights[] = "Moeilijkste opdracht: '{$mostDifficult['assignment_name']}' ({$mostDifficult['average_percentage']}%)";
+            }
+        }
+
+        return [
+            'performance' => $performanceInsights,
+            'assignments' => $assignmentInsights
+        ];
+    }
+
     private function renderReportView($reportType, $studentsProgress)
     {
         $viewData = [
@@ -926,6 +1360,9 @@ class ResultController extends Controller
                     'mediumCount' => $mediumCount,
                     'reportType' => $reportType
                 ]);
+            case 'averages':
+                $averagesData = $this->calculateAveragesReportData($studentsProgress);
+                return view('results.averages-report', array_merge($viewData, $averagesData));
             default:
                 return view('results.basic-color-report', $viewData);
         }
