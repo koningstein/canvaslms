@@ -2,7 +2,7 @@
 
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\ResultController;
+use App\Http\Controllers\OldResultController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -71,7 +71,7 @@ Route::middleware('auth')->group(function () {
     })->name('results.select');
 
     // Stap 5: Resultaten tonen
-    Route::get('/results/progress', [ResultController::class, 'getSelectedProgress'])->name('results.progress');
+    Route::get('/results/progress', [OldResultController::class, 'getSelectedProgress'])->name('results.progress');
 });
 
 require __DIR__.'/auth.php';
