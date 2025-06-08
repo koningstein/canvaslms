@@ -209,17 +209,21 @@ class ResultController extends Controller
         ];
     }
 
-    private function getGradeColorStatus($submission, $status, $score, $grade, $pointsPossible)
+    private function getGradeColorStatus($submission, $status, $score, $grade, $pointsPossible, $submissionTypes = [])
     {
-        // Implementation for grade report
         $color = 'bg-gray-200';
         $displayValue = '-';
+
+        // Check if this is a non-submittable assignment
+        $isNonSubmittable = empty($submissionTypes) || in_array('none', $submissionTypes);
 
         if ($submission['excused'] ?? false) {
             $color = 'bg-gray-300';
             $displayValue = 'Vrijgesteld';
         } elseif ($status === 'graded' && $score !== null) {
+            // Show actual score for graded assignments
             $displayValue = number_format($score, 1);
+
             if ($pointsPossible > 0) {
                 $percentage = ($score / $pointsPossible) * 100;
                 if ($percentage >= 75) {
@@ -229,10 +233,22 @@ class ResultController extends Controller
                 } else {
                     $color = 'bg-red-200';
                 }
+            } else {
+                // For pass/fail assignments
+                $color = $grade === 'complete' ? 'bg-green-200' : 'bg-red-200';
+                $displayValue = $grade === 'complete' ? 'Voltooid' : 'Niet voltooid';
             }
         } elseif ($status === 'submitted') {
             $color = 'bg-blue-200';
             $displayValue = 'Ingeleverd';
+        } elseif ($isNonSubmittable && ($pointsPossible ?? 0) > 0) {
+            // Non-submittable assignment without grade
+            $color = 'bg-gray-200';
+            $displayValue = 'Nog geen cijfer';
+        } else {
+            // Regular assignment not submitted
+            $color = 'bg-gray-200';
+            $displayValue = 'Niet ingeleverd';
         }
 
         return [
@@ -656,6 +672,108 @@ class ResultController extends Controller
         return $studentsWithRisk->sortByDesc('risk_score');
     }
 
+    private function calculateGradesReportData($studentsProgress)
+    {
+        $totalStudents = $studentsProgress->count();
+        $totalAssignments = $studentsProgress->isNotEmpty() ? $studentsProgress->first()['assignments']->count() : 0;
+
+        // Calculate total points awarded and possible
+        $totalPointsAwarded = 0;
+        $totalPointsPossible = 0;
+
+        foreach ($studentsProgress as $student) {
+            foreach ($student['assignments'] as $assignment) {
+                if (isset($assignment['score']) && is_numeric($assignment['score'])) {
+                    $totalPointsAwarded += $assignment['score'];
+                }
+                if (isset($assignment['points_possible']) && is_numeric($assignment['points_possible'])) {
+                    $totalPointsPossible += $assignment['points_possible'];
+                }
+            }
+        }
+
+        $averagePercentage = $totalPointsPossible > 0 ? round(($totalPointsAwarded / $totalPointsPossible) * 100, 1) : 0;
+
+        // Get assignment groups for header
+        $assignmentGroups = [];
+        if ($studentsProgress->isNotEmpty()) {
+            $assignmentGroups = $studentsProgress->first()['assignments']->groupBy('module_name')->map(function ($assignments) {
+                return $assignments->map(function ($assignment) {
+                    return [
+                        'assignment_name' => $assignment['assignment_name'],
+                        'assignment_id' => $assignment['assignment_id'],
+                        'points_possible' => $assignment['points_possible'] ?? 0,
+                    ];
+                });
+            });
+        }
+
+        // Process students with detailed score information
+        $studentsWithScores = $studentsProgress->map(function ($student) use ($assignmentGroups) {
+            $processedAssignments = [];
+            $studentTotalScore = 0;
+            $studentTotalPossible = 0;
+
+            foreach ($assignmentGroups as $moduleName => $assignments) {
+                foreach ($assignments as $assignment) {
+                    $studentAssignment = $student['assignments']->where('assignment_name', $assignment['assignment_name'])->first();
+
+                    $score = $studentAssignment['score'] ?? 0;
+                    $pointsPossible = $assignment['points_possible'];
+                    $status = $studentAssignment['status'] ?? 'unsubmitted';
+                    $color = $studentAssignment['color'] ?? 'bg-gray-200';
+                    $displayValue = $studentAssignment['display_value'] ?? '-';
+
+                    // Calculate tooltip information
+                    $tooltip = $assignment['assignment_name'];
+                    if ($status === 'graded' && is_numeric($score) && $pointsPossible > 0) {
+                        $percentage = round(($score / $pointsPossible) * 100, 1);
+                        $tooltip .= " - {$score}/{$pointsPossible} punten ({$percentage}%)";
+                    } else {
+                        $tooltip .= " - {$displayValue}";
+                    }
+
+                    // Add to student totals (only for graded assignments)
+                    if ($status === 'graded' && is_numeric($score)) {
+                        $studentTotalScore += $score;
+                    }
+                    if ($pointsPossible > 0) {
+                        $studentTotalPossible += $pointsPossible;
+                    }
+
+                    $processedAssignments[] = [
+                        'assignment_name' => $assignment['assignment_name'],
+                        'module_name' => $moduleName,
+                        'color' => $color,
+                        'display_value' => $displayValue,
+                        'points_possible' => $pointsPossible,
+                        'show_points_possible' => ($status === 'graded' && is_numeric($score) && $pointsPossible > 0),
+                        'tooltip' => $tooltip,
+                    ];
+                }
+            }
+
+            $studentTotalPercentage = $studentTotalPossible > 0 ? round(($studentTotalScore / $studentTotalPossible) * 100, 1) : 0;
+
+            $student['processed_assignments'] = $processedAssignments;
+            $student['total_score'] = number_format($studentTotalScore, 1);
+            $student['total_possible'] = $studentTotalPossible;
+            $student['total_percentage'] = $studentTotalPercentage;
+
+            return $student;
+        });
+
+        return [
+            'totalStudents' => $totalStudents,
+            'totalAssignments' => $totalAssignments,
+            'totalPointsAwarded' => number_format($totalPointsAwarded, 1),
+            'totalPointsPossible' => $totalPointsPossible,
+            'averagePercentage' => $averagePercentage,
+            'assignmentGroups' => $assignmentGroups,
+            'studentsWithScores' => $studentsWithScores,
+        ];
+    }
+
     private function renderReportView($reportType, $studentsProgress)
     {
         $viewData = [
@@ -667,14 +785,14 @@ class ResultController extends Controller
             case 'basic':
                 return view('results.basic-color-report', $viewData);
             case 'grades':
-                return view('results.grades-report', $viewData);
+                $gradesData = $this->calculateGradesReportData($studentsProgress);
+                return view('results.grades-report', array_merge($viewData, $gradesData));
             case 'percentages':
                 return view('results.percentages-report', $viewData);
             case 'missing':
                 $missingData = $this->calculateMissingReportData($studentsProgress);
                 return view('results.missing-report', array_merge($viewData, $missingData));
             case 'attention':
-                // Voor attention rapport berekenen we de risico's in de controller
                 $studentsWithRisk = $this->calculateAttentionRisks($studentsProgress);
                 $urgentCount = $studentsWithRisk->where('risk_level', 'urgent')->count();
                 $highCount = $studentsWithRisk->where('risk_level', 'high')->count();
