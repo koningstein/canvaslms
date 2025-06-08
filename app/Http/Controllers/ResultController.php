@@ -62,10 +62,10 @@ class ResultController extends Controller
                 $studentInfo = $studentData->get($studentId);
                 $studentName = $studentInfo['name'] ?? "Unknown ({$studentId})";
 
-                // Try to get student number from various sources
-                $studentNumber = $studentInfo['login_id'] ??
+                // Try to get student number - prioritize integration_id
+                $studentNumber = $studentInfo['integration_id'] ??
                     $studentInfo['sis_user_id'] ??
-                    $studentInfo['integration_id'] ??
+                    $studentInfo['login_id'] ??
                     $studentId;
 
                 $assignmentsStatuses = collect();
@@ -125,6 +125,8 @@ class ResultController extends Controller
                     'assignments' => $assignmentsStatuses,
                 ]);
             }
+
+            dd($studentsProgress);
 
             // Choose the appropriate view based on report type
             return $this->renderReportView($reportType, $studentsProgress);
@@ -323,30 +325,17 @@ class ResultController extends Controller
 
         switch ($reportType) {
             case 'basic':
-                $viewData['reportTitle'] = 'Basis Kleur Overzicht';
-                $viewData['reportDescription'] = 'Overzicht van de voortgang van studenten met kleurcodering';
-                break;
+                return view('results.basic-color-report', $viewData);
             case 'grades':
-                $viewData['reportTitle'] = 'Numerieke Cijfers';
-                $viewData['reportDescription'] = 'Overzicht van behaalde punten en cijfers';
-                break;
+                return view('results.grades-report', $viewData);
             case 'percentages':
-                $viewData['reportTitle'] = 'Percentage Overzicht';
-                $viewData['reportDescription'] = 'Overzicht van behaalde percentages';
-                break;
+                return view('results.percentages-report', $viewData);
             case 'missing':
-                $viewData['reportTitle'] = 'Ontbrekende Opdrachten';
-                $viewData['reportDescription'] = 'Overzicht van niet ingeleverde opdrachten';
-                break;
+                return view('results.missing-report', $viewData);
             case 'attention':
-                $viewData['reportTitle'] = 'Aandachtspunten';
-                $viewData['reportDescription'] = 'Studenten die extra aandacht nodig hebben';
-                break;
+                return view('results.attention-report', $viewData);
             default:
-                $viewData['reportTitle'] = 'Voortgangsoverzicht';
-                $viewData['reportDescription'] = 'Algemeen voortgangsoverzicht';
+                return view('results.basic-color-report', $viewData);
         }
-
-        return view('results.progress-overview', $viewData);
     }
 }
