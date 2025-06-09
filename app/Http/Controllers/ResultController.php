@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Configuration\ReportConfigurationFactory;
 use App\Services\Processing\ConfigurableReportProcessor;
+use App\Services\Processing\MissingReportProcessor;
 use App\Services\Analyzers\PerformanceAnalyzer;
 use App\Services\Analyzers\TrendAnalyzer;
 use App\Services\Analyzers\StatisticsCalculator;
@@ -15,6 +16,7 @@ class ResultController extends Controller
 {
     public function __construct(
         protected ConfigurableReportProcessor $reportProcessor,
+        protected MissingReportProcessor $missingReportProcessor,
         protected PerformanceAnalyzer $performanceAnalyzer,
         protected TrendAnalyzer $trendAnalyzer,
         protected StatisticsCalculator $statisticsCalculator,
@@ -100,15 +102,11 @@ class ResultController extends Controller
 
     protected function renderMissingReport($studentsProgress, $viewData)
     {
-        $studentsWithProblems = $studentsProgress->filter(function($student) {
-            return $student['assignments']->whereIn('display_value', ['Ontbreekt', 'Onvoldoende', 'Te laat'])->count() > 0;
-        });
+        // Gebruik de dedicated services
+        $missingStats = $this->statisticsCalculator->calculateMissingStats($studentsProgress);
+        $processedData = $this->missingReportProcessor->processMissingData($studentsProgress);
 
-        return view('results.missing-report', array_merge($viewData, [
-            'studentsWithProblems' => $studentsWithProblems,
-            'totalMissing' => $studentsProgress->sum(fn($s) => $s['assignments']->where('display_value', 'Ontbreekt')->count()),
-            'totalInsufficient' => $studentsProgress->sum(fn($s) => $s['assignments']->where('display_value', 'Onvoldoende')->count()),
-        ]));
+        return view('results.missing-report', array_merge($viewData, $missingStats, $processedData));
     }
 
     protected function renderAttentionReport($studentsProgress, $viewData)
