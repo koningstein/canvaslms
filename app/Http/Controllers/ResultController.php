@@ -118,6 +118,7 @@ class ResultController extends Controller
             'urgentCount' => $studentsWithRisk->where('risk_level', 'urgent')->count(),
             'highCount' => $studentsWithRisk->where('risk_level', 'high')->count(),
             'mediumCount' => $studentsWithRisk->where('risk_level', 'medium')->count(),
+            'totalStudents' => $studentsProgress->count(),
         ]));
     }
 
