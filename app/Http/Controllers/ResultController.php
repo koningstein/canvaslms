@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Configuration\ReportConfigurationFactory;
 use App\Services\Processing\ConfigurableReportProcessor;
 use App\Services\Processing\MissingReportProcessor;
+use App\Services\Processing\GradesReportProcessor;
 use App\Services\Analyzers\PerformanceAnalyzer;
 use App\Services\Analyzers\TrendAnalyzer;
 use App\Services\Analyzers\StatisticsCalculator;
@@ -17,6 +18,7 @@ class ResultController extends Controller
     public function __construct(
         protected ConfigurableReportProcessor $reportProcessor,
         protected MissingReportProcessor $missingReportProcessor,
+        protected GradesReportProcessor $gradesReportProcessor,
         protected PerformanceAnalyzer $performanceAnalyzer,
         protected TrendAnalyzer $trendAnalyzer,
         protected StatisticsCalculator $statisticsCalculator,
@@ -81,15 +83,20 @@ class ResultController extends Controller
 
     protected function renderGradesReport($studentsProgress, $viewData)
     {
+        // Gebruik de dedicated GradesReportProcessor
+        $gradesData = $this->gradesReportProcessor->processGradesData($studentsProgress);
+
         $statistics = $this->statisticsCalculator->calculateBasicStats($studentsProgress);
         $assignmentStats = $this->statisticsCalculator->calculateAssignmentStatistics($studentsProgress);
 
         return view('results.grades-report', array_merge($viewData, [
             'totalStudents' => $statistics['total_students'],
             'totalAssignments' => $statistics['total_assignments'],
-            'averagePercentage' => $statistics['average_percentage'],
-            'assignmentGroups' => $this->groupAssignmentsByModule($assignmentStats),
-            'studentsWithScores' => $studentsProgress,
+            'totalPointsAwarded' => $gradesData['totalPointsAwarded'],
+            'totalPointsPossible' => $gradesData['totalPointsPossible'],
+            'averagePercentage' => $gradesData['averagePercentage'],
+            'assignmentGroups' => $this->gradesReportProcessor->groupAssignmentsByModule($assignmentStats),
+            'studentsWithScores' => $gradesData['studentsWithScores'],
         ]));
     }
 
@@ -140,10 +147,5 @@ class ResultController extends Controller
             'lowPerformers' => collect(),
             'insights' => ['performance' => [], 'assignments' => []],
         ]));
-    }
-
-    protected function groupAssignmentsByModule($assignmentStats)
-    {
-        return collect($assignmentStats)->groupBy('module_name');
     }
 }
