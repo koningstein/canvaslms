@@ -50,20 +50,20 @@
         </div>
     @endif
 
-    {{-- Legend --}}
+    {{-- Legend - AANGEPAST NAAR CONSISTENTE KLEUREN --}}
     <div class="mb-6 p-4 bg-red-50 rounded-lg border border-red-200">
         <h3 class="font-semibold mb-3 text-red-800">Let op: Dit rapport toont alleen problematische opdrachten</h3>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
             <div class="flex items-center gap-2">
-                <div class="w-4 h-4 bg-red-400 rounded"></div>
+                <div class="w-4 h-4 bg-orange-200 rounded"></div>
                 <span>Niet ingeleverd</span>
             </div>
             <div class="flex items-center gap-2">
-                <div class="w-4 h-4 bg-orange-400 rounded"></div>
+                <div class="w-4 h-4 bg-red-200 rounded"></div>
                 <span>Onvoldoende (&lt;55%)</span>
             </div>
             <div class="flex items-center gap-2">
-                <div class="w-4 h-4 bg-yellow-300 rounded"></div>
+                <div class="w-4 h-4 bg-yellow-200 rounded"></div>
                 <span>Te laat ingeleverd</span>
             </div>
             <div class="flex items-center gap-2">
