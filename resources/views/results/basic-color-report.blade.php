@@ -54,33 +54,33 @@
         </div>
     @endif
 
-    {{-- Legend for Basic Color Report --}}
+    {{-- Legend - CONSISTENTE VOLGORDE EN TEKST --}}
     <div class="mb-6 p-4 bg-gray-50 rounded-lg">
         <h3 class="font-semibold mb-3">Legenda:</h3>
         <div class="grid grid-cols-2 md:grid-cols-6 gap-3 text-sm">
             <div class="flex items-center gap-2">
-                <div class="w-4 h-4 bg-green-400 rounded"></div>
+                <div class="w-4 h-4 bg-green-200 rounded"></div>
                 <span>Goed (≥75%)</span>
             </div>
             <div class="flex items-center gap-2">
-                <div class="w-4 h-4 bg-yellow-400 rounded"></div>
+                <div class="w-4 h-4 bg-yellow-200 rounded"></div>
                 <span>Voldoende (55-74%)</span>
             </div>
             <div class="flex items-center gap-2">
-                <div class="w-4 h-4 bg-orange-400 rounded"></div>
-                <span>Onvoldoende (<55%)</span>
+                <div class="w-4 h-4 bg-red-200 rounded"></div>
+                <span>Onvoldoende (&lt;55%)</span>
             </div>
             <div class="flex items-center gap-2">
-                <div class="w-4 h-4 bg-blue-400 rounded"></div>
-                <span>Ingeleverd</span>
+                <div class="w-4 h-4 bg-blue-200 rounded"></div>
+                <span>Ingeleverd (niet beoordeeld)</span>
             </div>
             <div class="flex items-center gap-2">
-                <div class="w-4 h-4 bg-red-300 rounded"></div>
+                <div class="w-4 h-4 bg-orange-200 rounded"></div>
                 <span>Niet ingeleverd</span>
             </div>
             <div class="flex items-center gap-2">
-                <div class="w-4 h-4 bg-gray-200 rounded"></div>
-                <span>Geen inlevering</span>
+                <div class="w-4 h-4 bg-purple-200 rounded"></div>
+                <span>Vrijgesteld</span>
             </div>
         </div>
     </div>

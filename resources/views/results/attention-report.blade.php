@@ -44,18 +44,19 @@
         </div>
     </div>
 
+    {{-- Legend - AANGEPAST NAAR CONSISTENTE KLEUREN --}}
     <div class="mb-6 p-3 bg-orange-50 rounded-lg border border-orange-200">
         <div class="grid grid-cols-3 gap-4 text-sm">
             <div class="flex items-center gap-2">
-                <div class="w-4 h-4 bg-red-500 rounded"></div>
+                <div class="w-4 h-4 bg-red-200 rounded"></div>
                 <span><strong>Urgent (≥5)</strong> - Meerdere echte problemen</span>
             </div>
             <div class="flex items-center gap-2">
-                <div class="w-4 h-4 bg-orange-500 rounded"></div>
+                <div class="w-4 h-4 bg-red-200 rounded"></div>
                 <span><strong>Hoog (3-4)</strong> - Enkele problemen, aanspreken</span>
             </div>
             <div class="flex items-center gap-2">
-                <div class="w-4 h-4 bg-yellow-500 rounded"></div>
+                <div class="w-4 h-4 bg-yellow-200 rounded"></div>
                 <span><strong>Gemiddeld (1-2)</strong> - Administratief/nakijken</span>
             </div>
         </div>
@@ -90,7 +91,7 @@
                         $student = $studentRisk['student'];
                         $riskLevel = $studentRisk['risk_level'];
                         $rowColor = $riskLevel === 'urgent' ? 'bg-red-50' :
-                                   ($riskLevel === 'high' ? 'bg-orange-50' : 'bg-yellow-50');
+                                   ($riskLevel === 'high' ? 'bg-red-50' : 'bg-yellow-50');
                     @endphp
 
                     <tr class="{{ $rowColor }} hover:bg-opacity-75">
@@ -107,15 +108,15 @@
 
                         <td class="px-3 py-3 text-center">
                             @if($riskLevel === 'urgent')
-                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-200 text-red-800">
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
                                         🚨 {{ $studentRisk['risk_score'] }}
                                     </span>
                             @elseif($riskLevel === 'high')
-                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-200 text-orange-800">
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
                                         ⚠️ {{ $studentRisk['risk_score'] }}
                                     </span>
                             @else
-                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-200 text-yellow-800">
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                                         📋 {{ $studentRisk['risk_score'] }}
                                     </span>
                             @endif
@@ -123,7 +124,7 @@
 
                         <td class="px-3 py-3 text-center">
                             @if($studentRisk['missing'] > 0)
-                                <span class="inline-flex items-center justify-center w-6 h-6 bg-red-200 text-red-800 rounded-full text-xs font-bold">
+                                <span class="inline-flex items-center justify-center w-6 h-6 bg-orange-200 text-red-800 rounded-full text-xs font-bold">
                                         {{ $studentRisk['missing'] }}
                                     </span>
                             @else
@@ -133,7 +134,7 @@
 
                         <td class="px-3 py-3 text-center">
                             @if($studentRisk['insufficient'] > 0)
-                                <span class="inline-flex items-center justify-center w-6 h-6 bg-orange-200 text-orange-800 rounded-full text-xs font-bold">
+                                <span class="inline-flex items-center justify-center w-6 h-6 bg-red-200 text-red-800 rounded-full text-xs font-bold">
                                         {{ $studentRisk['insufficient'] }}
                                     </span>
                             @else
@@ -184,11 +185,11 @@
                                 @endif
 
                                 @if(count($studentRisk['insufficient_list']) > 0)
-                                    <div class="text-orange-700">
+                                    <div class="text-red-700">
                                         <strong>Onvoldoende:</strong>
                                         {{ implode(', ', array_slice($studentRisk['insufficient_list'], 0, 2)) }}
                                         @if(count($studentRisk['insufficient_list']) > 2)
-                                            <span class="text-orange-500"> +{{ count($studentRisk['insufficient_list']) - 2 }} meer</span>
+                                            <span class="text-red-500"> +{{ count($studentRisk['insufficient_list']) - 2 }} meer</span>
                                         @endif
                                     </div>
                                 @endif

@@ -1,16 +1,16 @@
-{{-- resources/views/results/grades-report.blade.php --}}
+{{-- resources/views/results/percentages-report.blade.php --}}
 @extends('layouts.layoutadmin')
 
 @section('content')
     <div class="mb-6">
-        <h1 class="text-2xl font-bold mb-2">Numerieke Cijfers Rapport</h1>
-        <p class="text-gray-600">Overzicht van behaalde punten en cijfers per opdracht</p>
+        <h1 class="text-2xl font-bold mb-2">Percentages Rapport</h1>
+        <p class="text-gray-600">Overzicht van behaalde percentages per opdracht</p>
 
         {{-- Report Type Indicator --}}
         <div class="mt-4 flex items-center gap-4">
             <span class="text-sm font-medium text-gray-700">Rapport type:</span>
-            <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
-                Numerieke Cijfers
+            <span class="px-3 py-1 bg-teal-100 text-teal-800 rounded-full text-sm font-medium">
+                Percentages
             </span>
 
             {{-- Back to selection button --}}
@@ -34,23 +34,23 @@
             </div>
 
             <div class="bg-white p-3 rounded-lg shadow border text-center">
-                <div class="text-xl font-bold text-purple-600">{{ $totalPointsAwarded }}</div>
-                <div class="text-xs text-gray-600">Punten behaald</div>
+                <div class="text-xl font-bold text-purple-600">{{ $totalGradedAssignments }}</div>
+                <div class="text-xs text-gray-600">Beoordeeld</div>
             </div>
 
             <div class="bg-white p-3 rounded-lg shadow border text-center">
-                <div class="text-xl font-bold text-orange-600">{{ $totalPointsPossible }}</div>
-                <div class="text-xs text-gray-600">Punten mogelijk</div>
+                <div class="text-xl font-bold text-orange-600">{{ $averagePercentage }}%</div>
+                <div class="text-xs text-gray-600">Gem. percentage</div>
             </div>
 
             <div class="bg-white p-3 rounded-lg shadow border text-center">
-                <div class="text-xl font-bold text-gray-600">{{ $averagePercentage }}%</div>
-                <div class="text-xs text-gray-600">Gemiddeld percentage</div>
+                <div class="text-xl font-bold text-gray-600">{{ $completionRate }}%</div>
+                <div class="text-xs text-gray-600">Voltooiing</div>
             </div>
         </div>
     @endif
 
-    {{-- Legend for Grades Report - IDENTIEK AAN PERCENTAGE RAPPORT --}}
+    {{-- Legend - CORRECTE VOLGORDE: links naar rechts zoals gevraagd --}}
     <div class="mb-6 p-4 bg-gray-50 rounded-lg">
         <h3 class="font-semibold mb-3">Legenda:</h3>
         <div class="grid grid-cols-2 md:grid-cols-6 gap-3 text-sm">
@@ -93,8 +93,8 @@
                         {{ $moduleName }}
                     </th>
                 @endforeach
-                <th class="px-2 py-3 border-l-2 border-blue-300 text-center text-sm font-semibold text-blue-700 bg-blue-50">
-                    Totaal
+                <th class="px-2 py-3 border-l-2 border-teal-300 text-center text-sm font-semibold text-teal-700 bg-teal-50">
+                    Gemiddelde
                 </th>
             </tr>
             <tr class="bg-gray-25 border-b border-gray-200">
@@ -113,13 +113,13 @@
                         </th>
                     @endforeach
                 @endforeach
-                <th class="px-2 py-1 border-l-2 border-blue-300 text-center text-xs font-medium text-blue-600 bg-blue-50">
-                    Behaald/Mogelijk
+                <th class="px-2 py-1 border-l-2 border-teal-300 text-center text-xs font-medium text-teal-600 bg-teal-50">
+                    Percentage
                 </th>
             </tr>
             </thead>
             <tbody>
-            @foreach($studentsWithScores as $student)
+            @foreach($studentsWithPercentages as $student)
                 <tr class="border-b border-gray-100 hover:bg-gray-50">
                     <td class="px-2 py-2 border-r border-gray-200 text-sm font-medium text-gray-900 sticky left-0 bg-white z-10 max-w-40">
                         <div class="truncate">{{ $student['student_name'] }}</div>
@@ -137,19 +137,14 @@
                             <div class="font-medium">
                                 {{ $assignment['display_value'] }}
                             </div>
-                            @if($assignment['show_points_possible'])
-                                <div class="text-xs text-gray-600">
-                                    /{{ $assignment['points_possible'] }}
-                                </div>
-                            @endif
                         </td>
                     @endforeach
-                    <td class="px-2 py-2 border-l-2 border-blue-300 text-sm text-center bg-blue-50">
-                        <div class="font-bold text-blue-800">
-                            {{ $student['total_score'] }}/{{ $student['total_possible'] }}
+                    <td class="px-2 py-2 border-l-2 border-teal-300 text-sm text-center bg-teal-50">
+                        <div class="font-bold text-teal-800">
+                            {{ $student['average_percentage'] }}%
                         </div>
-                        <div class="text-xs text-blue-600">
-                            {{ $student['total_percentage'] }}%
+                        <div class="text-xs text-teal-600">
+                            {{ $student['graded_count'] }}/{{ $student['total_assignments'] }} beoordeeld
                         </div>
                     </td>
                 </tr>
