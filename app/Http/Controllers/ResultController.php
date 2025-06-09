@@ -6,6 +6,7 @@ use App\Configuration\ReportConfigurationFactory;
 use App\Services\Processing\ConfigurableReportProcessor;
 use App\Services\Processing\MissingReportProcessor;
 use App\Services\Processing\GradesReportProcessor;
+use App\Services\Processing\PercentagesReportProcessor;
 use App\Services\Analyzers\PerformanceAnalyzer;
 use App\Services\Analyzers\TrendAnalyzer;
 use App\Services\Analyzers\StatisticsCalculator;
@@ -19,6 +20,7 @@ class ResultController extends Controller
         protected ConfigurableReportProcessor $reportProcessor,
         protected MissingReportProcessor $missingReportProcessor,
         protected GradesReportProcessor $gradesReportProcessor,
+        protected PercentagesReportProcessor $percentagesReportProcessor,
         protected PerformanceAnalyzer $performanceAnalyzer,
         protected TrendAnalyzer $trendAnalyzer,
         protected StatisticsCalculator $statisticsCalculator,
@@ -85,9 +87,7 @@ class ResultController extends Controller
     {
         // Gebruik de dedicated GradesReportProcessor
         $gradesData = $this->gradesReportProcessor->processGradesData($studentsProgress);
-
         $statistics = $this->statisticsCalculator->calculateBasicStats($studentsProgress);
-        $assignmentStats = $this->statisticsCalculator->calculateAssignmentStatistics($studentsProgress);
 
         return view('results.grades-report', array_merge($viewData, [
             'totalStudents' => $statistics['total_students'],
@@ -95,16 +95,26 @@ class ResultController extends Controller
             'totalPointsAwarded' => $gradesData['totalPointsAwarded'],
             'totalPointsPossible' => $gradesData['totalPointsPossible'],
             'averagePercentage' => $gradesData['averagePercentage'],
-            'assignmentGroups' => $this->gradesReportProcessor->groupAssignmentsByModule($assignmentStats),
+            'assignmentGroups' => $gradesData['assignmentGroups'],
             'studentsWithScores' => $gradesData['studentsWithScores'],
         ]));
     }
 
     protected function renderPercentagesReport($studentsProgress, $viewData)
     {
+        // Hergebruik GradesReportProcessor + Statistics
+        $percentagesData = $this->percentagesReportProcessor->processPercentagesData($studentsProgress);
         $statistics = $this->statisticsCalculator->calculateBasicStats($studentsProgress);
 
-        return view('results.percentages-report', array_merge($viewData, $statistics));
+        return view('results.percentages-report', array_merge($viewData, [
+            'totalStudents' => $statistics['total_students'],
+            'totalAssignments' => $statistics['total_assignments'],
+            'totalGradedAssignments' => $statistics['total_graded_assignments'],
+            'averagePercentage' => $statistics['average_percentage'],
+            'completionRate' => $statistics['completion_rate'],
+            'assignmentGroups' => $percentagesData['assignmentGroups'],
+            'studentsWithPercentages' => $percentagesData['studentsWithPercentages'],
+        ]));
     }
 
     protected function renderMissingReport($studentsProgress, $viewData)
