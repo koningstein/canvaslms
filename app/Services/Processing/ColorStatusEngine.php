@@ -30,7 +30,7 @@ class ColorStatusEngine
         // Check if non-submittable
         $submissionTypes = $assignment['submission_types'] ?? [];
         if (empty($submissionTypes) || in_array('none', $submissionTypes)) {
-            return $this->createResult('bg-gray-200', 'non_submittable', $this->getNonSubmittableDisplay($config));
+            return $this->createResult('bg-gray-300', 'non_submittable', $this->getNonSubmittableDisplay($config));
         }
 
         // Default: not submitted
