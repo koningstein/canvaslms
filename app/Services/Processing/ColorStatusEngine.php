@@ -103,10 +103,10 @@ class ColorStatusEngine
     protected function getUnsubmittedDisplay(ReportConfiguration $config): string
     {
         return match ($config->reportType) {
-            'basic' => $config->displayFormats['missing'] ?? 'Niet ingeleverd',
-            'missing' => $config->displayFormats['missing'] ?? 'Ontbreekt',
+            'basic' => $config->displayFormats['missing'] ?? '',
+            'missing' => $config->displayFormats['missing'] ?? '',
             'attention' => 'Hulp nodig',
-            default => 'Niet ingeleverd'
+            default => ''
         };
     }
 
