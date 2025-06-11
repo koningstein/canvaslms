@@ -16,9 +16,12 @@ class StatisticsCalculator
             return $student['assignments']->whereIn('status', ['graded', 'submitted'])->count();
         });
 
-        // Tel alleen graded assignments
+        // Tel alleen graded assignments - FIXED voor percentages rapport
         $totalGradedAssignments = $studentsProgress->sum(function($student) {
-            return $student['assignments']->where('status', 'graded')->count();
+            return $student['assignments']->filter(function($assignment) {
+                $status = $assignment['status'] ?? '';
+                return in_array($status, ['graded', 'good', 'sufficient', 'insufficient']);
+            })->count();
         });
 
         // Bereken totaal punten voor grades rapport
@@ -34,24 +37,25 @@ class StatisticsCalculator
             })->sum('points_possible');
         });
 
-        // Bereken completion rate
-        $totalPossible = $totalStudents * $totalAssignments;
-        $completionRate = $totalPossible > 0 ? round(($totalSubmissions / $totalPossible) * 100, 1) : 0;
-
-        // Bereken gemiddeld percentage van alle beoordeelde opdrachten
-        $allGradedPercentages = $studentsProgress->flatMap(function($student) {
+        // Bereken completion rate - percentage van opdrachten die beoordeeld zijn
+        $totalAssignmentsWithPoints = $studentsProgress->sum(function($student) {
             return $student['assignments']->filter(function($assignment) {
-                return isset($assignment['score']) &&
-                    is_numeric($assignment['score']) &&
-                    isset($assignment['points_possible']) &&
-                    $assignment['points_possible'] > 0;
-            })->map(function($assignment) {
-                return ($assignment['score'] / $assignment['points_possible']) * 100;
-            });
+                return isset($assignment['points_possible']) && $assignment['points_possible'] > 0;
+            })->count();
         });
 
-        $averagePercentage = $allGradedPercentages->isNotEmpty() ?
-            round($allGradedPercentages->avg(), 1) : 0;
+        $completionRate = $totalAssignmentsWithPoints > 0 ?
+            round(($totalGradedAssignments / $totalAssignmentsWithPoints) * 100, 1) : 0;
+
+        // Bereken klas gemiddelde percentage van alle studenten
+        $studentAverages = $studentsProgress->map(function($student) {
+            return $student['average_percentage'] ?? 0;
+        })->filter(function($avg) {
+            return $avg > 0; // Alleen studenten met cijfers
+        });
+
+        $averagePercentage = $studentAverages->isNotEmpty() ?
+            round($studentAverages->avg(), 1) : 0;
 
         // Return ALLE data in beide naming conventions voor compatibility
         return [
