@@ -85,10 +85,10 @@ class ResultController extends Controller
         // Gebruik StatisticsCalculator voor basis statistieken
         $statistics = $this->statisticsCalculator->calculateBasicStats($studentsProgress);
 
-        // Bereken gemiddeldes
-        $studentsWithAverages = $this->averageCalculator->calculateStudentAverages($studentsProgress);
-        $assignmentAverages = $this->averageCalculator->calculateAssignmentAverages($studentsProgress);
-        $classAverageData = $this->averageCalculator->calculateClassAverage($studentsProgress);
+        // BELANGRIJK: Geef 'basic' als report type mee!
+        $studentsWithAverages = $this->averageCalculator->calculateStudentAverages($studentsProgress, 'basic');
+        $assignmentAverages = $this->averageCalculator->calculateAssignmentAverages($studentsProgress, 'basic');
+        $classAverageData = $this->averageCalculator->calculateClassAverage($studentsProgress, 'basic');
 
         return view('results.basic-color-report', array_merge($viewData, [
             'totalStudents' => $statistics['total_students'],
