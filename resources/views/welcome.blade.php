@@ -83,7 +83,7 @@
 
         <p class="text-xl text-green-100 mb-8 max-w-3xl mx-auto leading-relaxed">
             Beheer en analyseer de voortgang van je studenten in Canvas met krachtige rapportage tools
-            speciaal ontwikkeld voor MBO Software Developer docenten.
+            speciaal ontwikkeld voor docenten.
         </p>
 
         <div class="flex flex-col sm:flex-row justify-center items-center space-y-4 sm:space-y-0 sm:space-x-4">
@@ -269,7 +269,7 @@
                     <h3 class="text-lg font-semibold">Canvas Tool</h3>
                 </div>
                 <p class="text-gray-400">
-                    Student voortgang monitoring tool voor Techniekcollege Rotterdam docenten.
+                    Student voortgang monitoring tool voor Techniek College Rotterdam docenten.
                 </p>
             </div>
 
@@ -286,7 +286,7 @@
             <div>
                 <h4 class="text-lg font-semibold mb-4">Contact</h4>
                 <div class="text-gray-400 space-y-2">
-                    <p><i class="fas fa-envelope mr-2"></i> support@tcr.nl</p>
+                    <p><i class="fas fa-envelope mr-2"></i> no-support@canvaslmstool.nl</p>
                     <p><i class="fas fa-phone mr-2"></i> (010) 123-4567</p>
                     <p><i class="fas fa-map-marker-alt mr-2"></i> Rotterdam, Nederland</p>
                 </div>
@@ -294,7 +294,7 @@
         </div>
 
         <div class="border-t border-gray-700 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; 2024 Techniekcollege Rotterdam. Alle rechten voorbehouden.</p>
+            <p>&copy; 2025 Techniekcollege Rotterdam. Alle rechten voorbehouden.</p>
         </div>
     </div>
 </footer>
