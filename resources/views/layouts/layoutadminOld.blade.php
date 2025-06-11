@@ -10,7 +10,6 @@
     <script src="https://cdn.jsdelivr.net/npm/apexcharts" defer></script>
     <script src="{{ asset('js/scripts.js') }}" defer></script>
     @livewireStyles
-
     <!-- end script -->
     <title>TCR Canvas Tool</title>
 </head>
