@@ -2,352 +2,190 @@
 
 namespace App\Http\Controllers;
 
+use App\Configuration\ReportConfigurationFactory;
+use App\Services\Processing\ConfigurableReportProcessor;
+use App\Services\Processing\MissingReportProcessor;
+use App\Services\Processing\GradesReportProcessor;
+use App\Services\Processing\PercentagesReportProcessor;
+use App\Services\Analyzers\AverageCalculator;
+use App\Services\Analyzers\PerformanceAnalyzer;
+use App\Services\Analyzers\TrendAnalyzer;
+use App\Services\Analyzers\StatisticsCalculator;
+use App\Services\Analyzers\ChartDataGenerator;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class ResultController extends Controller
 {
+    public function __construct(
+        protected ConfigurableReportProcessor $reportProcessor,
+        protected MissingReportProcessor $missingReportProcessor,
+        protected GradesReportProcessor $gradesReportProcessor,
+        protected PercentagesReportProcessor $percentagesReportProcessor,
+        protected AverageCalculator $averageCalculator,
+        protected PerformanceAnalyzer $performanceAnalyzer,
+        protected TrendAnalyzer $trendAnalyzer,
+        protected StatisticsCalculator $statisticsCalculator,
+        protected ChartDataGenerator $chartDataGenerator
+    ) {}
+
     public function getSelectedProgress()
     {
-        $students = session('selected_users', []);
-        $courseModules = session('selected_modules', []);
-        $reportType = session('report_type', 'basic');
-
-        // Transform the arrays into the required format
-        $transformedStudents = collect($students)->pluck('id')->toArray();
-        // Keep original student data for names and IDs
-        $studentData = collect($students)->keyBy('id');
-
-        $transformedCourseModules = collect($courseModules)
-            ->groupBy('course_id')
-            ->map(function ($modules) {
-                return $modules->pluck('id')->toArray();
-            })
-            ->toArray();
-
         try {
-            $studentsProgress = collect();
+            $students = session('selected_users', []);
+            $courseModules = session('selected_modules', []);
+            $reportType = session('report_type', 'basic');
 
-            // Cache assignments and module names per course
-            $allAssignments = [];
-            $allModules = [];
-            foreach ($transformedCourseModules as $courseId => $moduleIds) {
-                // Fetch all assignments for the course
-                $assignmentsResponse = Http::withOptions(['verify' => false])
-                    ->withHeaders(['Authorization' => 'Bearer ' . env('CANVAS_API_TOKEN')])
-                    ->get(env('CANVAS_API_URL') . "/api/v1/courses/{$courseId}/assignments", [
-                        'per_page' => 100,
-                    ]);
+            // Log voor debugging
+            Log::info('Report Controller called', [
+                'report_type' => $reportType,
+                'students_count' => count($students),
+                'modules_count' => count($courseModules)
+            ]);
 
-                $allAssignments[$courseId] = collect($assignmentsResponse->json())->keyBy('id');
+            $config = ReportConfigurationFactory::create($reportType);
+            $studentsProgress = $this->reportProcessor->processReport($students, $courseModules, $config);
 
-                // Fetch module names
-                foreach ($moduleIds as $moduleId) {
-                    $moduleResponse = Http::withOptions(['verify' => false])
-                        ->withHeaders(['Authorization' => 'Bearer ' . env('CANVAS_API_TOKEN')])
-                        ->get(env('CANVAS_API_URL') . "/api/v1/courses/{$courseId}/modules/{$moduleId}");
-
-                    if ($moduleResponse->successful()) {
-                        $moduleData = $moduleResponse->json();
-                        $allModules[$moduleId] = $moduleData['name'] ?? "Module {$moduleId}";
-                    } else {
-                        $allModules[$moduleId] = "Module {$moduleId}";
-                    }
-                }
-            }
-
-            foreach ($transformedStudents as $studentId) {
-                // Get student info from session data instead of API call
-                $studentInfo = $studentData->get($studentId);
-                $studentName = $studentInfo['name'] ?? "Unknown ({$studentId})";
-
-                // Try to get student number - prioritize integration_id
-                $studentNumber = $studentInfo['integration_id'] ??
-                    $studentInfo['sis_user_id'] ??
-                    $studentInfo['login_id'] ??
-                    $studentId;
-
-                $assignmentsStatuses = collect();
-
-                foreach ($transformedCourseModules as $courseId => $moduleIds) {
-                    foreach ($moduleIds as $moduleId) {
-                        // Fetch module items
-                        $moduleItemsResponse = Http::withOptions(['verify' => false])
-                            ->withHeaders(['Authorization' => 'Bearer ' . env('CANVAS_API_TOKEN')])
-                            ->get(env('CANVAS_API_URL') . "/api/v1/courses/{$courseId}/modules/{$moduleId}/items", [
-                                'per_page' => 100,
-                            ]);
-
-                        $moduleItems = collect($moduleItemsResponse->json());
-                        $assignmentsInModule = $moduleItems->where('type', 'Assignment');
-
-                        foreach ($assignmentsInModule as $assignment) {
-                            $assignmentId = $assignment['content_id'];
-                            $assignmentDetails = $allAssignments[$courseId]->get($assignmentId);
-                            $pointsPossible = $assignmentDetails['points_possible'] ?? 1;
-                            $submissionTypes = $assignmentDetails['submission_types'] ?? [];
-
-                            $submissionResponse = Http::withOptions(['verify' => false])
-                                ->withHeaders(['Authorization' => 'Bearer ' . env('CANVAS_API_TOKEN')])
-                                ->get(env('CANVAS_API_URL') . "/api/v1/courses/{$courseId}/assignments/{$assignmentId}/submissions/{$studentId}");
-
-                            $submission = $submissionResponse->successful() ? $submissionResponse->json() : null;
-
-                            $status = $submission['workflow_state'] ?? 'unsubmitted';
-                            $score = $submission['score'] ?? 0;
-                            $grade = strtolower($submission['grade'] ?? '');
-
-                            // Color and status logic based on report type
-                            $colorAndStatus = $this->getColorAndStatus($submission, $status, $score, $grade, $pointsPossible, $reportType, $assignmentDetails, $submissionTypes);
-
-                            $assignmentsStatuses->push([
-                                'assignment_name' => $assignment['title'] ?? "Assignment {$assignmentId}",
-                                'assignment_id' => $assignmentId,
-                                'module_id' => $moduleId,
-                                'module_name' => $allModules[$moduleId] ?? "Module {$moduleId}",
-                                'status' => $colorAndStatus['status'],
-                                'color' => $colorAndStatus['color'],
-                                'display_value' => $colorAndStatus['display_value'],
-                                'score' => $score,
-                                'points_possible' => $pointsPossible,
-                                'submitted_at' => $submission['submitted_at'] ?? null,
-                                'graded_at' => $submission['graded_at'] ?? null,
-                                'due_at' => $assignmentDetails['due_at'] ?? null,
-                            ]);
-                        }
-                    }
-                }
-
-                $studentsProgress->push([
-                    'student_id' => $studentNumber,
-                    'canvas_id' => $studentId,
-                    'student_name' => $studentName,
-                    'assignments' => $assignmentsStatuses,
-                ]);
-            }
-
-            // Choose the appropriate view based on report type
-            return $this->renderReportView($reportType, $studentsProgress);
+            return $this->renderReport($studentsProgress, $config);
 
         } catch (\Exception $e) {
-            Log::error('Canvas API Error', ['message' => $e->getMessage()]);
+            Log::error('Report Controller Error', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
 
-    private function getColorAndStatus($submission, $status, $score, $grade, $pointsPossible, $reportType, $assignmentDetails, $submissionTypes = [])
+    protected function renderReport($studentsProgress, $config)
     {
-        switch ($reportType) {
+        $viewData = ['studentsProgress' => $studentsProgress, 'reportType' => $config->reportType];
+
+        switch ($config->reportType) {
             case 'basic':
-                return $this->getBasicColorStatus($submission, $status, $score, $grade, $pointsPossible, $submissionTypes);
+                return $this->renderBasicReport($studentsProgress, $viewData);
             case 'grades':
-                return $this->getGradeColorStatus($submission, $status, $score, $grade, $pointsPossible, $submissionTypes);
+                return $this->renderGradesReport($studentsProgress, $viewData);
             case 'percentages':
-                return $this->getPercentageColorStatus($submission, $status, $score, $grade, $pointsPossible, $submissionTypes);
+                return $this->renderPercentagesReport($studentsProgress, $viewData);
             case 'missing':
-                return $this->getMissingColorStatus($submission, $status, $score, $grade, $pointsPossible, $submissionTypes);
+                return $this->renderMissingReport($studentsProgress, $viewData);
             case 'attention':
-                return $this->getAttentionColorStatus($submission, $status, $score, $grade, $pointsPossible, $submissionTypes);
+                return $this->renderAttentionReport($studentsProgress, $viewData);
+            case 'averages':
+                return $this->renderAveragesReport($studentsProgress, $viewData);
             default:
-                return $this->getBasicColorStatus($submission, $status, $score, $grade, $pointsPossible, $submissionTypes);
+                return $this->renderBasicReport($studentsProgress, $viewData);
         }
     }
 
-    private function getBasicColorStatus($submission, $status, $score, $grade, $pointsPossible, $submissionTypes = [])
+    protected function renderBasicReport($studentsProgress, $viewData)
     {
-        $color = 'bg-red-300'; // Default red for unsubmitted
-        $displayValue = '';
+        // Gebruik StatisticsCalculator voor basis statistieken
+        $statistics = $this->statisticsCalculator->calculateBasicStats($studentsProgress);
 
-        // Check if this is a non-submittable assignment (no submission types or contains 'none')
-        $isNonSubmittable = empty($submissionTypes) || in_array('none', $submissionTypes);
+        // Bereken gemiddeldes
+        $studentsWithAverages = $this->averageCalculator->calculateStudentAverages($studentsProgress);
+        $assignmentAverages = $this->averageCalculator->calculateAssignmentAverages($studentsProgress);
+        $classAverageData = $this->averageCalculator->calculateClassAverage($studentsProgress);
 
-        // Check if there's actually a grade/score assigned
-        $hasGrade = ($status === 'graded') ||
-            ($score !== null && $score > 0) ||
-            (!empty($grade) && $grade !== 'null');
-
-        if ($submission['excused'] ?? false) {
-            $color = 'bg-gray-300';
-            $status = 'excused';
-            $displayValue = 'Vrijgesteld';
-        } elseif ($hasGrade) {
-            // There's an actual grade/score assigned
-            if ($pointsPossible > 0) {
-                $percentage = ($score / $pointsPossible) * 100;
-                if ($percentage >= 75) {
-                    $color = 'bg-green-400';
-                    $displayValue = 'Goed';
-                } elseif ($percentage >= 55) {
-                    $color = 'bg-yellow-400';
-                    $displayValue = 'Voldoende';
-                } else {
-                    $color = 'bg-orange-400';
-                    $displayValue = 'Onvoldoende';
-                }
-            } else {
-                // Pass/Fail assignment
-                $color = $grade === 'complete' ? 'bg-green-400' : 'bg-orange-400';
-                $displayValue = $grade === 'complete' ? 'Voltooid' : 'Niet voltooid';
-            }
-        } elseif ($status === 'submitted') {
-            $color = 'bg-blue-400';
-            $displayValue = 'Ingeleverd';
-        } elseif ($isNonSubmittable) {
-            // Only show "no submission" if there's no grade yet and it's not submittable
-            $color = 'bg-gray-200';
-            $displayValue = 'Geen inlevering';
-        } else {
-            $color = 'bg-red-300';
-            $displayValue = 'Niet ingeleverd';
-        }
-
-        return [
-            'color' => $color,
-            'status' => $status,
-            'display_value' => $displayValue
-        ];
+        return view('results.basic-color-report', array_merge($viewData, [
+            'totalStudents' => $statistics['total_students'],
+            'totalAssignments' => $statistics['total_assignments'],
+            'totalSubmissions' => $statistics['total_submissions'],
+            'completionRate' => $statistics['completion_rate'],
+            'studentsWithAverages' => $studentsWithAverages,
+            'assignmentAverages' => $assignmentAverages,
+            'classAverageData' => $classAverageData,
+        ]));
     }
 
-    private function getGradeColorStatus($submission, $status, $score, $grade, $pointsPossible)
+    protected function renderGradesReport($studentsProgress, $viewData)
     {
-        // Implementation for grade report
-        $color = 'bg-gray-200';
-        $displayValue = '-';
+        // Gebruik de dedicated GradesReportProcessor
+        $gradesData = $this->gradesReportProcessor->processGradesData($studentsProgress);
+        $statistics = $this->statisticsCalculator->calculateBasicStats($studentsProgress);
 
-        if ($submission['excused'] ?? false) {
-            $color = 'bg-gray-300';
-            $displayValue = 'Vrijgesteld';
-        } elseif ($status === 'graded' && $score !== null) {
-            $displayValue = number_format($score, 1);
-            if ($pointsPossible > 0) {
-                $percentage = ($score / $pointsPossible) * 100;
-                if ($percentage >= 75) {
-                    $color = 'bg-green-200';
-                } elseif ($percentage >= 55) {
-                    $color = 'bg-yellow-200';
-                } else {
-                    $color = 'bg-red-200';
-                }
-            }
-        } elseif ($status === 'submitted') {
-            $color = 'bg-blue-200';
-            $displayValue = 'Ingeleverd';
-        }
+        // Voeg gemiddeldes toe voor herbruikbaarheid
+        $assignmentAverages = $this->averageCalculator->calculateAssignmentAverages($studentsProgress);
+        $classAverageData = $this->averageCalculator->calculateClassAverage($studentsProgress);
 
-        return [
-            'color' => $color,
-            'status' => $status,
-            'display_value' => $displayValue
-        ];
+        return view('results.grades-report', array_merge($viewData, [
+            'totalStudents' => $statistics['total_students'],
+            'totalAssignments' => $statistics['total_assignments'],
+            'totalPointsAwarded' => $gradesData['totalPointsAwarded'],
+            'totalPointsPossible' => $gradesData['totalPointsPossible'],
+            'averagePercentage' => $gradesData['averagePercentage'],
+            'assignmentGroups' => $gradesData['assignmentGroups'],
+            'studentsWithScores' => $gradesData['studentsWithScores'],
+            'assignmentAverages' => $assignmentAverages,
+            'classAverageData' => $classAverageData,
+        ]));
     }
 
-    private function getPercentageColorStatus($submission, $status, $score, $grade, $pointsPossible)
+    protected function renderPercentagesReport($studentsProgress, $viewData)
     {
-        // Implementation for percentage report
-        $color = 'bg-gray-200';
-        $displayValue = '-';
+        // Hergebruik GradesReportProcessor + Statistics
+        $percentagesData = $this->percentagesReportProcessor->processPercentagesData($studentsProgress);
+        $statistics = $this->statisticsCalculator->calculateBasicStats($studentsProgress);
 
-        if ($submission['excused'] ?? false) {
-            $color = 'bg-gray-300';
-            $displayValue = 'Vrijgesteld';
-        } elseif ($status === 'graded' && $score !== null && $pointsPossible > 0) {
-            $percentage = ($score / $pointsPossible) * 100;
-            $displayValue = number_format($percentage, 0) . '%';
+        // Voeg gemiddeldes toe voor herbruikbaarheid
+        $assignmentAverages = $this->averageCalculator->calculateAssignmentAverages($studentsProgress);
+        $classAverageData = $this->averageCalculator->calculateClassAverage($studentsProgress);
 
-            if ($percentage >= 75) {
-                $color = 'bg-green-200';
-            } elseif ($percentage >= 55) {
-                $color = 'bg-yellow-200';
-            } else {
-                $color = 'bg-red-200';
-            }
-        } elseif ($status === 'submitted') {
-            $color = 'bg-blue-200';
-            $displayValue = 'Ingeleverd';
-        }
-
-        return [
-            'color' => $color,
-            'status' => $status,
-            'display_value' => $displayValue
-        ];
+        return view('results.percentages-report', array_merge($viewData, [
+            'totalStudents' => $statistics['total_students'],
+            'totalAssignments' => $statistics['total_assignments'],
+            'totalGradedAssignments' => $statistics['total_graded_assignments'],
+            'averagePercentage' => $statistics['average_percentage'],
+            'completionRate' => $statistics['completion_rate'],
+            'assignmentGroups' => $percentagesData['assignmentGroups'],
+            'studentsWithPercentages' => $percentagesData['studentsWithPercentages'],
+            'assignmentAverages' => $assignmentAverages,
+            'classAverageData' => $classAverageData,
+        ]));
     }
 
-    private function getMissingColorStatus($submission, $status, $score, $grade, $pointsPossible)
+    protected function renderMissingReport($studentsProgress, $viewData)
     {
-        // Only show missing/incomplete assignments
-        $color = 'bg-white';
-        $displayValue = '';
+        // Gebruik de dedicated services
+        $missingStats = $this->statisticsCalculator->calculateMissingStats($studentsProgress);
+        $processedData = $this->missingReportProcessor->processMissingData($studentsProgress);
 
-        if ($status === 'unsubmitted' || $status === 'pending_review') {
-            $color = 'bg-red-300';
-            $displayValue = 'Ontbreekt';
-        } elseif ($status === 'graded' && $pointsPossible > 0) {
-            $percentage = ($score / $pointsPossible) * 100;
-            if ($percentage < 55) {
-                $color = 'bg-orange-300';
-                $displayValue = 'Onvoldoende';
-            }
-        }
-
-        return [
-            'color' => $color,
-            'status' => $status,
-            'display_value' => $displayValue
-        ];
+        return view('results.missing-report', array_merge($viewData, $missingStats, $processedData));
     }
 
-    private function getAttentionColorStatus($submission, $status, $score, $grade, $pointsPossible)
+    protected function renderAttentionReport($studentsProgress, $viewData)
     {
-        // Highlight students who need attention
-        $color = 'bg-white';
-        $displayValue = '';
+        $studentsWithRisk = $this->performanceAnalyzer->calculateAttentionRisks($studentsProgress);
 
-        if ($status === 'unsubmitted') {
-            $color = 'bg-red-400';
-            $displayValue = 'Hulp nodig';
-        } elseif ($status === 'graded' && $pointsPossible > 0) {
-            $percentage = ($score / $pointsPossible) * 100;
-            if ($percentage < 55) {
-                $color = 'bg-orange-400';
-                $displayValue = 'Extra begeleiding';
-            } elseif ($percentage < 75) {
-                $color = 'bg-yellow-400';
-                $displayValue = 'Aandacht';
-            }
-        } elseif ($status === 'submitted') {
-            $color = 'bg-blue-300';
-            $displayValue = 'Nakijken';
-        }
-
-        return [
-            'color' => $color,
-            'status' => $status,
-            'display_value' => $displayValue
-        ];
+        return view('results.attention-report', array_merge($viewData, [
+            'studentsWithRisk' => $studentsWithRisk,
+            'urgentCount' => $studentsWithRisk->where('risk_level', 'urgent')->count(),
+            'highCount' => $studentsWithRisk->where('risk_level', 'high')->count(),
+            'mediumCount' => $studentsWithRisk->where('risk_level', 'medium')->count(),
+            'totalStudents' => $studentsProgress->count(),
+        ]));
     }
 
-    private function renderReportView($reportType, $studentsProgress)
+    protected function renderAveragesReport($studentsProgress, $viewData)
     {
-        $viewData = [
-            'studentsProgress' => $studentsProgress,
-            'reportType' => $reportType
-        ];
+        $statistics = $this->statisticsCalculator->calculateBasicStats($studentsProgress);
+        $assignmentStats = $this->statisticsCalculator->calculateAssignmentStatistics($studentsProgress);
+        $chartData = $this->chartDataGenerator->generateStudentPerformanceChart($studentsProgress);
+        $trendData = $this->trendAnalyzer->calculateTrendData($studentsProgress);
 
-        switch ($reportType) {
-            case 'basic':
-                return view('results.basic-color-report', $viewData);
-            case 'grades':
-                return view('results.grades-report', $viewData);
-            case 'percentages':
-                return view('results.percentages-report', $viewData);
-            case 'missing':
-                return view('results.missing-report', $viewData);
-            case 'attention':
-                return view('results.attention-report', $viewData);
-            default:
-                return view('results.basic-color-report', $viewData);
-        }
+        return view('results.averages-report', array_merge($viewData, [
+            'totalStudents' => $statistics['total_students'],
+            'totalAssignments' => $statistics['total_assignments'],
+            'overallClassAverage' => $statistics['average_percentage'],
+            'assignmentAnalysis' => $assignmentStats,
+            'chartData' => $chartData,
+            'trendData' => $trendData,
+            'topPerformers' => collect(),
+            'lowPerformers' => collect(),
+            'insights' => ['performance' => [], 'assignments' => []],
+        ]));
     }
 }
