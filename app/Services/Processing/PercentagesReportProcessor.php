@@ -17,7 +17,7 @@ class PercentagesReportProcessor
         $studentsWithPercentages = $studentsProgress->map(function ($student) {
             // Converteer assignments naar percentage display
             $processedAssignments = $student['assignments']->map(function ($assignment) {
-                // Behoud alle originele data, pas alleen display_value aan
+                // Behoud alle originele data, pas alleen display_value aan voor percentages
                 $assignmentCopy = $assignment;
                 $assignmentCopy['display_value'] = $this->convertToPercentageDisplay($assignment);
                 return $assignmentCopy;
@@ -26,13 +26,13 @@ class PercentagesReportProcessor
             // Bereken student gemiddelde voor percentage rapport
             $averagePercentage = $this->calculateStudentAveragePercentage($student);
             $gradedCount = $this->countGradedAssignments($student);
-            $totalAssignments = $student['assignments']->count();
+            $totalPointsAssignments = $this->countPointsAssignments($student); // Alleen opdrachten met punten
 
             return array_merge($student, [
                 'assignments' => $processedAssignments, // Gebruik assignments in plaats van processed_assignments
                 'average_percentage' => $averagePercentage,
                 'graded_count' => $gradedCount,
-                'total_assignments' => $totalAssignments
+                'total_assignments' => $totalPointsAssignments // Gebruik opdrachten met punten
             ]);
         });
 
@@ -65,38 +65,55 @@ class PercentagesReportProcessor
             return '';
         }
 
-        // Voor alle andere statussen, gebruik de originele display_value
+        // Voor alle andere statussen, gebruik de originele display_value (zoals "Ingeleverd", "Vrijgesteld")
         return $assignment['display_value'] ?? '';
     }
 
     private function calculateStudentAveragePercentage(array $student): float
     {
-        // Filter assignments die een numerieke score hebben
-        $gradedAssignments = $student['assignments']->filter(function ($assignment) {
-            return isset($assignment['score']) &&
-                is_numeric($assignment['score']) &&
-                isset($assignment['points_possible']) &&
-                $assignment['points_possible'] > 0;
-        });
+        $totalPercentage = 0;
+        $totalAssignments = 0;
 
-        if ($gradedAssignments->isEmpty()) {
-            return 0;
+        foreach ($student['assignments'] as $assignment) {
+            // Alleen opdrachten met punten meetellen
+            if (isset($assignment['points_possible']) && $assignment['points_possible'] > 0) {
+                $totalAssignments++;
+
+                // Als beoordeeld: gebruik het behaalde percentage
+                if (isset($assignment['score']) && is_numeric($assignment['score'])) {
+                    $percentage = ($assignment['score'] / $assignment['points_possible']) * 100;
+                    $totalPercentage += $percentage;
+                }
+                // Als niet beoordeeld: tel als 0%
+                // (totalPercentage += 0, dus geen wijziging)
+            }
         }
 
-        // Bereken totaal behaalde punten en totaal mogelijke punten
-        $totalScore = $gradedAssignments->sum('score');
-        $totalPossible = $gradedAssignments->sum('points_possible');
-
-        return $totalPossible > 0 ? round(($totalScore / $totalPossible) * 100, 1) : 0;
+        return $totalAssignments > 0 ? round($totalPercentage / $totalAssignments, 1) : 0;
     }
 
     private function countGradedAssignments(array $student): int
     {
         return $student['assignments']->filter(function ($assignment) {
-            return isset($assignment['score']) &&
+            // Een assignment is beoordeeld als het een score EN punten mogelijk heeft
+            // De status kan 'graded', 'good', 'sufficient', 'insufficient' zijn
+            $hasValidScore = isset($assignment['score']) &&
                 is_numeric($assignment['score']) &&
                 isset($assignment['points_possible']) &&
                 $assignment['points_possible'] > 0;
+
+            // Check ook de status om te zien of het echt beoordeeld is
+            $status = $assignment['status'] ?? '';
+            $isGraded = in_array($status, ['graded', 'good', 'sufficient', 'insufficient']);
+
+            return $hasValidScore && $isGraded;
+        })->count();
+    }
+
+    private function countPointsAssignments(array $student): int
+    {
+        return $student['assignments']->filter(function ($assignment) {
+            return isset($assignment['points_possible']) && $assignment['points_possible'] > 0;
         })->count();
     }
 }
