@@ -36,7 +36,6 @@ class ResultController extends Controller
             $courseModules = session('selected_modules', []);
             $reportType = session('report_type', 'basic');
 
-            // Log voor debugging
             Log::info('Report Controller called', [
                 'report_type' => $reportType,
                 'students_count' => count($students),
@@ -85,6 +84,20 @@ class ResultController extends Controller
         // Gebruik StatisticsCalculator voor basis statistieken
         $statistics = $this->statisticsCalculator->calculateBasicStats($studentsProgress);
 
+        // Debug: tel handmatig de inleveringen
+        $totalSubmissions = 0;
+        foreach ($studentsProgress as $student) {
+            foreach ($student['assignments'] as $assignment) {
+                $status = $assignment['status'] ?? '';
+                // Tel alle beoordeelde statussen
+                if (in_array($status, ['graded', 'submitted', 'good', 'sufficient', 'insufficient'])) {
+                    $totalSubmissions++;
+                }
+            }
+        }
+        $statistics['total_submissions'] = $totalSubmissions;
+        $statistics['totalSubmissions'] = $totalSubmissions;
+
         // BELANGRIJK: Geef 'basic' als report type mee!
         $studentsWithAverages = $this->averageCalculator->calculateStudentAverages($studentsProgress, 'basic');
         $assignmentAverages = $this->averageCalculator->calculateAssignmentAverages($studentsProgress, 'basic');
@@ -107,9 +120,9 @@ class ResultController extends Controller
         $gradesData = $this->gradesReportProcessor->processGradesData($studentsProgress);
         $statistics = $this->statisticsCalculator->calculateBasicStats($studentsProgress);
 
-        // Voeg gemiddeldes toe voor herbruikbaarheid
-        $assignmentAverages = $this->averageCalculator->calculateAssignmentAverages($studentsProgress);
-        $classAverageData = $this->averageCalculator->calculateClassAverage($studentsProgress);
+        // Voor grades report: gebruik punten-gebaseerde berekening
+        $assignmentAverages = $this->averageCalculator->calculateAssignmentAverages($studentsProgress, 'grades');
+        $classAverageData = $this->averageCalculator->calculateClassAverage($studentsProgress, 'grades');
 
         return view('results.grades-report', array_merge($viewData, [
             'totalStudents' => $statistics['total_students'],
@@ -130,9 +143,9 @@ class ResultController extends Controller
         $percentagesData = $this->percentagesReportProcessor->processPercentagesData($studentsProgress);
         $statistics = $this->statisticsCalculator->calculateBasicStats($studentsProgress);
 
-        // Voeg gemiddeldes toe voor herbruikbaarheid
-        $assignmentAverages = $this->averageCalculator->calculateAssignmentAverages($studentsProgress);
-        $classAverageData = $this->averageCalculator->calculateClassAverage($studentsProgress);
+        // Voor percentages report: gebruik punten-gebaseerde berekening
+        $assignmentAverages = $this->averageCalculator->calculateAssignmentAverages($studentsProgress, 'percentages');
+        $classAverageData = $this->averageCalculator->calculateClassAverage($studentsProgress, 'percentages');
 
         return view('results.percentages-report', array_merge($viewData, [
             'totalStudents' => $statistics['total_students'],
