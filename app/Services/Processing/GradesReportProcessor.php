@@ -24,11 +24,18 @@ class GradesReportProcessor
                 $processed = $this->processGradeAssignment($assignment, $pointsAwarded, $pointsPossible);
                 $processedAssignments[] = $processed;
 
-                if ($pointsPossible > 0 && $assignment['status'] === 'graded') {
-                    $studentTotalScore += $pointsAwarded;
+                // Tel ALLE opdrachten met punten mee voor "mogelijk"
+                if ($pointsPossible > 0) {
                     $studentTotalPossible += $pointsPossible;
-                    $totalPointsAwarded += $pointsAwarded;
                     $totalPointsPossible += $pointsPossible;
+
+                    // Tel alleen behaalde punten mee als beoordeeld
+                    $isGraded = in_array($assignment['status'], ['graded', 'good', 'sufficient', 'insufficient']);
+                    if (isset($assignment['score']) && is_numeric($assignment['score']) && $isGraded) {
+                        $studentTotalScore += $pointsAwarded;
+                        $totalPointsAwarded += $pointsAwarded;
+                    }
+                    // Als niet beoordeeld: 0 punten behaald, maar wel meetellen voor mogelijk
                 }
             }
 
@@ -39,8 +46,8 @@ class GradesReportProcessor
             // BELANGRIJKE FIX: Behoud de originele student structuur + voeg extra data toe
             $studentsWithScores[] = array_merge($student, [
                 'processed_assignments' => $processedAssignments,
-                'total_score' => $studentTotalScore,
-                'total_possible' => $studentTotalPossible,
+                'total_score' => round($studentTotalScore, 1),
+                'total_possible' => round($studentTotalPossible, 1),
                 'total_percentage' => $studentPercentage
             ]);
         }
@@ -60,8 +67,8 @@ class GradesReportProcessor
 
         return [
             'studentsWithScores' => collect($studentsWithScores),
-            'totalPointsAwarded' => $totalPointsAwarded,
-            'totalPointsPossible' => $totalPointsPossible,
+            'totalPointsAwarded' => round($totalPointsAwarded, 1),
+            'totalPointsPossible' => round($totalPointsPossible, 1),
             'averagePercentage' => $averagePercentage,
             'assignmentGroups' => $assignmentGroups
         ];
@@ -74,17 +81,17 @@ class GradesReportProcessor
 
         // Bepaal display value en kleur voor grades report
         if ($status === 'unsubmitted' || $status === 'missing') {
-            $displayValue = '-';
+            $displayValue = ''; // Geen tekst, alleen kleur
             $color = 'bg-orange-200';
             $showPointsPossible = false;
             $tooltip = $assignment['assignment_name'] . ' - Niet ingeleverd';
         } elseif ($status === 'submitted' && !isset($assignment['score'])) {
-            $displayValue = 'Ingeleverd';
+            $displayValue = ''; // Geen tekst, alleen kleur
             $color = 'bg-blue-200';
             $showPointsPossible = false;
             $tooltip = $assignment['assignment_name'] . ' - Ingeleverd, nog niet beoordeeld';
         } elseif ($status === 'graded' && isset($assignment['score']) && $pointsPossible > 0) {
-            $displayValue = $pointsAwarded;
+            $displayValue = $pointsAwarded; // Toon de score (bijv. 9.0, 13.0)
             $showPointsPossible = true;
             $tooltip = $assignment['assignment_name'] . " - {$pointsAwarded}/{$pointsPossible} punten (" . round($percentage, 1) . "%)";
 
@@ -97,12 +104,12 @@ class GradesReportProcessor
                 $color = 'bg-red-200';
             }
         } elseif ($status === 'excused') {
-            $displayValue = 'Vrijgesteld';
+            $displayValue = ''; // Geen tekst, alleen kleur
             $color = 'bg-purple-200';
             $showPointsPossible = false;
             $tooltip = $assignment['assignment_name'] . ' - Vrijgesteld';
         } else {
-            $displayValue = 'Geen data';
+            $displayValue = ''; // Geen tekst, alleen kleur
             $color = 'bg-gray-100';
             $showPointsPossible = false;
             $tooltip = $assignment['assignment_name'] . ' - Geen data beschikbaar';

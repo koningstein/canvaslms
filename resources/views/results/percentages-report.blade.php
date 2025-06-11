@@ -22,37 +22,32 @@
 
     {{-- Summary Statistics --}}
     @if($studentsProgress->isNotEmpty())
-        <div class="mb-6 grid grid-cols-6 gap-3">
-            <div class="bg-white p-3 rounded-lg shadow border text-center">
-                <div class="text-xl font-bold text-blue-600">{{ $totalStudents }}</div>
-                <div class="text-xs text-gray-600">Studenten</div>
+        <div class="mb-6 grid grid-cols-5 gap-4">
+            <div class="bg-white p-4 rounded-lg shadow border text-center">
+                <div class="text-2xl font-bold text-blue-600">{{ $totalStudents }}</div>
+                <div class="text-sm text-gray-600">Studenten</div>
             </div>
 
-            <div class="bg-white p-3 rounded-lg shadow border text-center">
-                <div class="text-xl font-bold text-green-600">{{ $totalAssignments }}</div>
-                <div class="text-xs text-gray-600">Opdrachten</div>
+            <div class="bg-white p-4 rounded-lg shadow border text-center">
+                <div class="text-2xl font-bold text-green-600">{{ $totalAssignments }}</div>
+                <div class="text-sm text-gray-600">Opdrachten</div>
             </div>
 
-            <div class="bg-white p-3 rounded-lg shadow border text-center">
-                <div class="text-xl font-bold text-purple-600">{{ $totalGradedAssignments }}</div>
-                <div class="text-xs text-gray-600">Beoordeeld</div>
+            <div class="bg-white p-4 rounded-lg shadow border text-center">
+                <div class="text-2xl font-bold text-purple-600">{{ $totalGradedAssignments }}</div>
+                <div class="text-sm text-gray-600">Beoordeeld</div>
             </div>
 
-            <div class="bg-white p-3 rounded-lg shadow border text-center">
-                <div class="text-xl font-bold text-orange-600">{{ $averagePercentage }}%</div>
-                <div class="text-xs text-gray-600">Gem. percentage</div>
+            <div class="bg-white p-4 rounded-lg shadow border text-center">
+                <div class="text-2xl font-bold text-orange-600">{{ $completionRate }}%</div>
+                <div class="text-sm text-gray-600">Voltooiing</div>
             </div>
 
-            <div class="bg-white p-3 rounded-lg shadow border text-center">
-                <div class="text-xl font-bold text-gray-600">{{ $completionRate }}%</div>
-                <div class="text-xs text-gray-600">Voltooiing</div>
-            </div>
-
-            <div class="bg-white p-3 rounded-lg shadow border text-center">
-                <div class="text-xl font-bold {{ $classAverageData['class_average_color'] ?? 'text-gray-600' }}">
+            <div class="bg-white p-4 rounded-lg shadow border text-center">
+                <div class="text-2xl font-bold {{ $classAverageData['class_average_color'] ?? 'text-gray-600' }}">
                     {{ $classAverageData['class_average_display'] ?? 'N/A' }}
                 </div>
-                <div class="text-xs text-gray-600">Klas Gemiddelde</div>
+                <div class="text-sm text-gray-600">Klas Gemiddelde</div>
             </div>
         </div>
     @endif
@@ -114,7 +109,7 @@
                             <div class="truncate" title="{{ $assignment['assignment_name'] }} ({{ $assignment['points_possible'] }} punten)">
                                 {{ Str::limit($assignment['assignment_name'], 15) }}
                             </div>
-                            <div class="text-xs text-gray-400 mt-1" style="writing-mode: horizontal-tb;">
+                            <div class="text-xs text-gray-600 mt-1" style="writing-mode: horizontal-tb;">
                                 ({{ $assignment['points_possible'] }}p)
                             </div>
                         </th>
