@@ -1,61 +1,262 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# TCR Canvas Tool
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Een uitgebreide Laravel-applicatie voor het monitoren en analyseren van studentenvoortgang via de Canvas LMS API. Ontwikkeld voor het Techniekcollege Rotterdam om docenten te helpen bij het volgen van studentprestaties.
 
-## About Laravel
+## 🚀 Branch Strategie
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- **`live`** - Stabiele, werkende versie voor productie
+- **`main`** - AI development branch (kan instabiel zijn door AI experimenten)
+- **`feature/*`** - Feature branches voor nieuwe ontwikkeling
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+**Gebruik altijd de `live` branch voor een volledig werkende versie van de applicatie.**
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## ✨ Functies
 
-## Learning Laravel
+### 📚 Multi-step Wizard
+De applicatie biedt een stapsgewijze interface voor het selecteren van data:
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+1. **Cursus Selectie** - Kies cursussen uit Canvas
+2. **Module Selectie** - Selecteer specifieke modules binnen cursussen
+3. **Opdracht Groepen** - Kies welke assignment groups te monitoren
+4. **Student Selectie** - Selecteer individuele studenten of hele secties
+5. **Rapport Generatie** - Kies uit verschillende rapportformaten
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+### 📊 Rapportages
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+#### Basis Overzichten
+- **Basis Kleur Overzicht** - Kleurgecodeerde status weergave
+- **Ontbrekende Opdrachten** - Focus op niet-ingeleverde werk
+- **Aandachtspunten** - Studenten die hulp nodig hebben
 
-## Laravel Sponsors
+#### Cijfer & Prestatie Overzichten
+- **Numerieke Cijfers** - Puntscores en cijfers weergave
+- **Percentages** - Percentage behaald vs mogelijk
+- **Gemiddelden** - Uitgebreide analyse met grafieken en trends
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+#### Geavanceerde Analyses
+- **Deadline Overzicht** - Te laat ingeleverde opdrachten
+- **Tijdlijn Analyse** - Wanneer opdrachten zijn ingeleverd
+- **Competentie Overzicht** - MBO competentie voortgang
 
-### Premium Partners
+### 🎨 Visuele Features
+- Kleurgecodeerde status indicators
+- Interactieve grafieken (ApexCharts)
+- Responsive design met Tailwind CSS
+- Print-vriendelijke layouts
+- Sticky headers voor grote tabellen
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+## 🛠 Technische Stack
 
-## Contributing
+- **Framework**: Laravel (PHP)
+- **Frontend**: Livewire, Tailwind CSS, ApexCharts
+- **Database**: MySQL/PostgreSQL
+- **API Integration**: Canvas LMS API
+- **Caching**: Laravel Cache (Redis recommended)
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+## 📁 Project Structuur
 
-## Code of Conduct
+### Controllers
+- `CourseController` - Basis cursus weergave
+- `ResultController` - Rapportage logica en rendering
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+### Livewire Components
+- `CourseSelector` - Cursus selectie interface
+- `ModuleSelector` - Module selectie
+- `AssignmentGroupSelector` - Assignment group selectie
+- `StudentSelector` - Student selectie met sectie ondersteuning
+- `ResultSelector` - Rapport type keuze
 
-## Security Vulnerabilities
+### Services
+- `CanvasService` - Canvas API integratie
+- Report Processors:
+    - `ConfigurableReportProcessor`
+    - `MissingReportProcessor`
+    - `GradesReportProcessor`
+    - `PercentagesReportProcessor`
+- Analyzers:
+    - `PerformanceAnalyzer`
+    - `TrendAnalyzer`
+    - `StatisticsCalculator`
+    - `ChartDataGenerator`
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+### Views & Templates
+- **Layouts**: `layoutadmin.blade.php` - Hoofdlayout met navigatie
+- **Step Views**:
+    - `courses/index.blade.php`
+    - `modules/select.blade.php`
+    - `students/select.blade.php`
+    - `results/select.blade.php`
+- **Report Views**:
+    - `basic-color-report.blade.php`
+    - `grades-report.blade.php`
+    - `percentages-report.blade.php`
+    - `missing-report.blade.php`
+    - `attention-report.blade.php`
+    - `averages-report.blade.php`
 
-## License
+## ⚙️ Installatie
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+### Vereisten
+- PHP 8.2+
+- Composer
+- Node.js & npm
+- MySQL/PostgreSQL
+- Canvas LMS API toegang
+
+### Setup
+
+1. **Clone de repository**
+   ```bash
+   git clone [repository-url]
+   cd tcr-canvas-tool
+   git checkout live  # Voor stabiele versie
+   ```
+
+2. **Install dependencies**
+   ```bash
+   composer install
+   npm install && npm run build
+   ```
+
+3. **Environment configuratie**
+   ```bash
+   cp .env.example .env
+   php artisan key:generate
+   ```
+
+4. **Canvas API configuratie**
+   Voeg toe aan `.env`:
+   ```env
+   CANVAS_API_URL=https://[your-canvas-domain]
+   CANVAS_API_TOKEN=your_api_token_here
+   ```
+
+5. **Database setup**
+   ```bash
+   php artisan migrate
+   ```
+
+6. **Start de applicatie**
+   ```bash
+   php artisan serve
+   ```
+
+## 🔧 Canvas API Setup
+
+1. Log in op Canvas als administrator
+2. Ga naar Account → Settings → Approved Integrations
+3. Genereer een nieuwe API token
+4. Kopieer de token naar je `.env` bestand
+
+### Benodigde Permissions
+- Cursussen lezen
+- Modules lezen
+- Assignments lezen
+- Studenten data lezen
+- Grades lezen
+
+## 🎯 Gebruik
+
+### Voor Docenten
+
+1. **Start een nieuwe analyse**
+    - Ga naar `/courses`
+    - Zoek en selecteer je cursussen
+
+2. **Verfijn je selectie**
+    - Kies specifieke modules
+    - Selecteer relevante assignment groups
+    - Kies individuele studenten of hele secties
+
+3. **Genereer rapporten**
+    - Kies het gewenste rapport type
+    - Bekijk de resultaten
+    - Print of exporteer indien nodig
+
+### Rapport Interpretatie
+
+- **Groen** - Goed (≥75%)
+- **Geel** - Voldoende (55-74%)
+- **Rood** - Onvoldoende (<55%)
+- **Blauw** - Ingeleverd (niet beoordeeld)
+- **Oranje** - Niet ingeleverd
+
+## 🔒 Beveiliging
+
+- Authenticatie vereist voor alle functionaliteiten
+- Canvas API tokens worden veilig opgeslagen
+- Session-based data opslag voor wizard stappen
+- CSRF bescherming op alle forms
+
+## 🚧 Development Workflow
+
+### Branch Strategie
+- **`live`** - Productie-klare code
+- **`main`** - AI development en experimenten (mogelijk instabiel)
+- **`feature/feature-name`** - Nieuwe features en bug fixes
+
+### Development Process
+1. Maak een feature branch vanaf `live` voor nieuwe ontwikkeling
+2. Ontwikkel en test je feature
+3. Merge naar `live` na testing
+4. `main` branch is gereserveerd voor AI development
+
+### Voor AI Development (main branch)
+De main branch bevat AI-experimenten en -integraties die mogelijk instabiel kunnen zijn.
+
+### Voor Nieuwe Features
+Gebruik altijd feature branches:
+```bash
+git checkout live
+git pull origin live
+git checkout -b feature/your-feature-name
+# Ontwikkel je feature
+git push origin feature/your-feature-name
+# Maak PR naar live branch
+```
+
+## 📈 Performance
+
+- Canvas API caching (10 minuten default)
+- Lazy loading van assignment data
+- Efficient database queries
+- Optimized frontend rendering
+
+## 🤝 Contributing
+
+### Development Workflow
+1. **Voor nieuwe features**: Maak een feature branch vanaf `live`
+   ```bash
+   git checkout live
+   git checkout -b feature/your-feature-name
+   ```
+
+2. **Ontwikkel je feature**
+    - Test thoroughly
+    - Volg Laravel coding standards
+    - Documenteer nieuwe functies
+
+3. **Merge proces**
+    - Maak PR naar `live` branch
+    - Code review door team
+    - Merge na approval
+
+4. **Belangrijke regels**
+    - Werk NOOIT direct op `main` (AI reserved)
+    - Gebruik `live` als basis voor nieuwe features
+    - Test altijd voor merge naar `live`
+
+## 📞 Support
+
+Voor vragen over de applicatie:
+- Check eerst de documentatie
+- Raadpleeg de Canvas API documentation
+- Contact de development team
+
+## 📄 License
+
+Deze software is ontwikkeld voor het Techniekcollege Rotterdam en is bedoeld voor intern gebruik.
+
+---
+
+**Belangrijk**: Gebruik de `live` branch voor een stabiele ervaring. De `main` branch kan instabiel zijn door AI-development werkzaamheden.

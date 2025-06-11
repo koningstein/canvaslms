@@ -61,6 +61,7 @@ class CourseSelector extends Component
 
     public function selectCourse($course)
     {
+//        dd($course);
         // Prevent duplicates
         foreach ($this->selectedCourses as $selected) {
             if ($selected['id'] == $course['id']) {
@@ -68,6 +69,7 @@ class CourseSelector extends Component
             }
         }
         $this->selectedCourses[] = $course;
+        session(['selected_courses' => $this->selectedCourses]);
     }
 
     public function removeCourse($courseId)
