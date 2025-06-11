@@ -72,4 +72,32 @@ class ReportController extends Controller
             'trendData' => $trendData,
         ]));
     }
+
+    protected function renderGradesReport($studentsProgress, $viewData)
+    {
+        // Gebruik de dedicated GradesReportProcessor
+        $gradesData = $this->gradesReportProcessor->processGradesData($studentsProgress);
+        $statistics = $this->statisticsCalculator->calculateBasicStats($studentsProgress);
+
+        // Voeg gemiddeldes toe voor herbruikbaarheid
+        $assignmentAverages = $this->averageCalculator->calculateAssignmentAverages($studentsProgress);
+        $classAverageData = $this->averageCalculator->calculateClassAverage($studentsProgress);
+
+        return view('results.grades-report', array_merge($viewData, [
+            // Statistics
+            'totalStudents' => $statistics['total_students'],
+            'totalAssignments' => $statistics['total_assignments'],
+
+            // Grades specific data
+            'totalPointsAwarded' => $gradesData['totalPointsAwarded'],
+            'totalPointsPossible' => $gradesData['totalPointsPossible'],
+            'averagePercentage' => $gradesData['averagePercentage'],
+            'assignmentGroups' => $gradesData['assignmentGroups'],
+            'studentsWithScores' => $gradesData['studentsWithScores'],
+
+            // Averages
+            'assignmentAverages' => $assignmentAverages,
+            'classAverageData' => $classAverageData,
+        ]));
+    }
 }
