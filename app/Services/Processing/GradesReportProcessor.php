@@ -74,17 +74,17 @@ class GradesReportProcessor
 
         // Bepaal display value en kleur voor grades report
         if ($status === 'unsubmitted' || $status === 'missing') {
-            $displayValue = '-';
+            $displayValue = ''; // Geen tekst, alleen kleur
             $color = 'bg-orange-200';
             $showPointsPossible = false;
             $tooltip = $assignment['assignment_name'] . ' - Niet ingeleverd';
         } elseif ($status === 'submitted' && !isset($assignment['score'])) {
-            $displayValue = 'Ingeleverd';
+            $displayValue = ''; // Geen tekst, alleen kleur
             $color = 'bg-blue-200';
             $showPointsPossible = false;
             $tooltip = $assignment['assignment_name'] . ' - Ingeleverd, nog niet beoordeeld';
         } elseif ($status === 'graded' && isset($assignment['score']) && $pointsPossible > 0) {
-            $displayValue = $pointsAwarded;
+            $displayValue = $pointsAwarded; // Toon de score (bijv. 9.0, 13.0)
             $showPointsPossible = true;
             $tooltip = $assignment['assignment_name'] . " - {$pointsAwarded}/{$pointsPossible} punten (" . round($percentage, 1) . "%)";
 
@@ -97,12 +97,12 @@ class GradesReportProcessor
                 $color = 'bg-red-200';
             }
         } elseif ($status === 'excused') {
-            $displayValue = 'Vrijgesteld';
+            $displayValue = ''; // Geen tekst, alleen kleur
             $color = 'bg-purple-200';
             $showPointsPossible = false;
             $tooltip = $assignment['assignment_name'] . ' - Vrijgesteld';
         } else {
-            $displayValue = 'Geen data';
+            $displayValue = ''; // Geen tekst, alleen kleur
             $color = 'bg-gray-100';
             $showPointsPossible = false;
             $tooltip = $assignment['assignment_name'] . ' - Geen data beschikbaar';
