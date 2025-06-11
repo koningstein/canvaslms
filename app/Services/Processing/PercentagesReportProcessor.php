@@ -60,6 +60,11 @@ class PercentagesReportProcessor
             return round($percentage, 0) . '%';
         }
 
+        // Voor niet-ingeleverde opdrachten: geen tekst, alleen kleur
+        if ($status === 'unsubmitted' || $status === 'missing') {
+            return '';
+        }
+
         // Voor alle andere statussen, gebruik de originele display_value
         return $assignment['display_value'] ?? '';
     }

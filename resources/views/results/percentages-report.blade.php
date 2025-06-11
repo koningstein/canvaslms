@@ -114,7 +114,7 @@
                             <div class="truncate" title="{{ $assignment['assignment_name'] }} ({{ $assignment['points_possible'] }} punten)">
                                 {{ Str::limit($assignment['assignment_name'], 15) }}
                             </div>
-                            <div class="text-xs text-gray-400 mt-1" style="writing-mode: horizontal-tb;">
+                            <div class="text-xs text-gray-600 mt-1" style="writing-mode: horizontal-tb;">
                                 ({{ $assignment['points_possible'] }}p)
                             </div>
                         </th>
