@@ -6,41 +6,74 @@ use Illuminate\Support\Collection;
 
 class StatisticsCalculator
 {
-    public function calculateBasicStats($studentsProgress)
+    public function calculateBasicStats(Collection $studentsProgress): array
     {
         $totalStudents = $studentsProgress->count();
         $totalAssignments = $studentsProgress->isNotEmpty() ? $studentsProgress->first()['assignments']->count() : 0;
 
-        // Bereken totaal behaalde punten en mogelijke punten
-        $totalPointsAwarded = 0;
-        $totalPointsPossible = 0;
-        $totalGradedAssignments = 0;
+        // Tel submissions (graded + submitted)
+        $totalSubmissions = $studentsProgress->sum(function($student) {
+            return $student['assignments']->whereIn('status', ['graded', 'submitted'])->count();
+        });
 
-        foreach ($studentsProgress as $student) {
-            foreach ($student['assignments'] as $assignment) {
-                if (isset($assignment['points_possible']) && $assignment['points_possible'] > 0) {
-                    $totalPointsPossible += $assignment['points_possible'];
+        // Tel alleen graded assignments
+        $totalGradedAssignments = $studentsProgress->sum(function($student) {
+            return $student['assignments']->where('status', 'graded')->count();
+        });
 
-                    if (isset($assignment['score']) && $assignment['score'] !== null) {
-                        $totalPointsAwarded += $assignment['score'];
-                        $totalGradedAssignments++;
-                    }
-                }
-            }
-        }
+        // Bereken totaal punten voor grades rapport
+        $totalPointsAwarded = $studentsProgress->sum(function($student) {
+            return $student['assignments']->filter(function($assignment) {
+                return isset($assignment['score']) && is_numeric($assignment['score']);
+            })->sum('score');
+        });
 
-        $averagePercentage = $totalPointsPossible > 0 ? round(($totalPointsAwarded / $totalPointsPossible) * 100, 1) : 0;
-        $completionRate = ($totalStudents * $totalAssignments) > 0 ?
-            round(($totalGradedAssignments / ($totalStudents * $totalAssignments)) * 100, 1) : 0;
+        $totalPointsPossible = $studentsProgress->sum(function($student) {
+            return $student['assignments']->filter(function($assignment) {
+                return isset($assignment['points_possible']) && is_numeric($assignment['points_possible']);
+            })->sum('points_possible');
+        });
 
+        // Bereken completion rate
+        $totalPossible = $totalStudents * $totalAssignments;
+        $completionRate = $totalPossible > 0 ? round(($totalSubmissions / $totalPossible) * 100, 1) : 0;
+
+        // Bereken gemiddeld percentage van alle beoordeelde opdrachten
+        $allGradedPercentages = $studentsProgress->flatMap(function($student) {
+            return $student['assignments']->filter(function($assignment) {
+                return isset($assignment['score']) &&
+                    is_numeric($assignment['score']) &&
+                    isset($assignment['points_possible']) &&
+                    $assignment['points_possible'] > 0;
+            })->map(function($assignment) {
+                return ($assignment['score'] / $assignment['points_possible']) * 100;
+            });
+        });
+
+        $averagePercentage = $allGradedPercentages->isNotEmpty() ?
+            round($allGradedPercentages->avg(), 1) : 0;
+
+        // Return ALLE data in beide naming conventions voor compatibility
         return [
+            // Snake case (nieuw/preferred)
             'total_students' => $totalStudents,
             'total_assignments' => $totalAssignments,
+            'total_submissions' => $totalSubmissions,
+            'total_graded_assignments' => $totalGradedAssignments,
             'total_points_awarded' => $totalPointsAwarded,
             'total_points_possible' => $totalPointsPossible,
-            'total_graded_assignments' => $totalGradedAssignments,
-            'average_percentage' => $averagePercentage,
             'completion_rate' => $completionRate,
+            'average_percentage' => $averagePercentage,
+
+            // Camel case (voor bestaande views)
+            'totalStudents' => $totalStudents,
+            'totalAssignments' => $totalAssignments,
+            'totalSubmissions' => $totalSubmissions,
+            'totalGradedAssignments' => $totalGradedAssignments,
+            'totalPointsAwarded' => $totalPointsAwarded,
+            'totalPointsPossible' => $totalPointsPossible,
+            'completionRate' => $completionRate,
+            'averagePercentage' => $averagePercentage,
         ];
     }
 
@@ -79,50 +112,55 @@ class StatisticsCalculator
         return $distribution;
     }
 
-    public function calculateAssignmentStatistics($studentsProgress)
+    public function calculateAssignmentStatistics(Collection $studentsProgress): Collection
     {
-        $assignmentStats = [];
-
         if ($studentsProgress->isEmpty()) {
-            return $assignmentStats;
+            return collect();
         }
 
-        // Verzamel alle unieke assignments
         $allAssignments = $studentsProgress->first()['assignments'];
 
-        foreach ($allAssignments as $assignmentTemplate) {
-            $assignmentName = $assignmentTemplate['assignment_name'];
-            $moduleName = $assignmentTemplate['module_name'] ?? 'Onbekend';
-            $pointsPossible = $assignmentTemplate['points_possible'] ?? 0;
+        return $allAssignments->map(function ($assignment) use ($studentsProgress) {
+            $assignmentName = $assignment['assignment_name'];
 
-            $scores = [];
-            $gradedCount = 0;
+            // Verzamel alle student responses voor deze opdracht
+            $responses = $studentsProgress->map(function ($student) use ($assignmentName) {
+                return $student['assignments']->where('assignment_name', $assignmentName)->first();
+            })->filter();
 
-            // Verzamel scores van alle studenten voor deze assignment
-            foreach ($studentsProgress as $student) {
-                $studentAssignment = $student['assignments']->where('assignment_name', $assignmentName)->first();
-                if ($studentAssignment && isset($studentAssignment['score']) && $studentAssignment['score'] !== null) {
-                    $scores[] = $studentAssignment['score'];
-                    $gradedCount++;
+            $totalResponses = $responses->count();
+            $gradedResponses = $responses->where('status', 'graded');
+            $submittedResponses = $responses->whereIn('status', ['graded', 'submitted']);
+
+            // Bereken gemiddelde als er scores zijn
+            $averageScore = null;
+            $averagePercentage = null;
+
+            if ($gradedResponses->isNotEmpty()) {
+                $validScores = $gradedResponses->filter(function ($response) {
+                    return isset($response['score']) &&
+                        is_numeric($response['score']) &&
+                        isset($response['points_possible']) &&
+                        $response['points_possible'] > 0;
+                });
+
+                if ($validScores->isNotEmpty()) {
+                    $averageScore = round($validScores->avg('score'), 1);
+                    $totalScore = $validScores->sum('score');
+                    $totalPossible = $validScores->sum('points_possible');
+                    $averagePercentage = $totalPossible > 0 ? round(($totalScore / $totalPossible) * 100, 1) : 0;
                 }
             }
 
-            $averageScore = count($scores) > 0 ? round(array_sum($scores) / count($scores), 1) : 0;
-            $averagePercentage = $pointsPossible > 0 ? round(($averageScore / $pointsPossible) * 100, 1) : 0;
-
-            $assignmentStats[] = [
-                'assignment_name' => $assignmentName,
-                'module_name' => $moduleName,
-                'points_possible' => $pointsPossible,
+            return array_merge($assignment, [
+                'total_responses' => $totalResponses,
+                'graded_count' => $gradedResponses->count(),
+                'submitted_count' => $submittedResponses->count(),
                 'average_score' => $averageScore,
                 'average_percentage' => $averagePercentage,
-                'graded_count' => $gradedCount,
-                'total_students' => $studentsProgress->count(),
-                'completion_percentage' => $studentsProgress->count() > 0 ? round(($gradedCount / $studentsProgress->count()) * 100, 1) : 0,
-            ];
-        }
-
-        return $assignmentStats;
+                'completion_rate' => $totalResponses > 0 ? round(($submittedResponses->count() / $totalResponses) * 100, 1) : 0,
+            ]);
+        });
     }
 
     protected function calculateCompletionRate(Collection $studentsProgress, int $totalStudents, int $totalAssignments): float
@@ -201,19 +239,35 @@ class StatisticsCalculator
         };
     }
 
-    public function calculateMissingStats($studentsProgress)
+    public function calculateMissingStats(Collection $studentsProgress): array
     {
-        // Bereken verschillende tellingen
-        $totalMissing = $studentsProgress->sum(fn($s) => $s['assignments']->where('display_value', 'Ontbreekt')->count());
-        $totalInsufficient = $studentsProgress->sum(fn($s) => $s['assignments']->where('display_value', 'Onvoldoende')->count());
-        $totalLate = $studentsProgress->sum(fn($s) => $s['assignments']->where('display_value', 'Te laat')->count());
-        $totalProblematic = $totalMissing + $totalInsufficient + $totalLate;
-
         $totalStudents = $studentsProgress->count();
 
-        // Filter studenten met problemen
+        $totalMissing = $studentsProgress->sum(function($student) {
+            return $student['assignments']->where('status', 'missing')->count();
+        });
+
+        $totalInsufficient = $studentsProgress->sum(function($student) {
+            return $student['assignments']->filter(function($assignment) {
+                return isset($assignment['score']) &&
+                    isset($assignment['points_possible']) &&
+                    $assignment['points_possible'] > 0 &&
+                    (($assignment['score'] / $assignment['points_possible']) * 100) < 55;
+            })->count();
+        });
+
+        $totalProblematic = $totalMissing + $totalInsufficient;
+
         $studentsWithProblemsCount = $studentsProgress->filter(function($student) {
-            return $student['assignments']->whereIn('display_value', ['Ontbreekt', 'Onvoldoende', 'Te laat'])->count() > 0;
+            $missing = $student['assignments']->where('status', 'missing')->count();
+            $insufficient = $student['assignments']->filter(function($assignment) {
+                return isset($assignment['score']) &&
+                    isset($assignment['points_possible']) &&
+                    $assignment['points_possible'] > 0 &&
+                    (($assignment['score'] / $assignment['points_possible']) * 100) < 55;
+            })->count();
+
+            return ($missing + $insufficient) > 0;
         })->count();
 
         $problemRate = $totalStudents > 0 ? round(($studentsWithProblemsCount / $totalStudents) * 100, 1) : 0;
@@ -221,11 +275,10 @@ class StatisticsCalculator
         return [
             'totalMissing' => $totalMissing,
             'totalInsufficient' => $totalInsufficient,
-            'totalLate' => $totalLate,
             'totalProblematic' => $totalProblematic,
-            'totalStudents' => $totalStudents,
             'studentsWithProblemsCount' => $studentsWithProblemsCount,
             'problemRate' => $problemRate,
+            'totalStudents' => $totalStudents,
         ];
     }
 }
