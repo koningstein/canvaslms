@@ -24,7 +24,7 @@ class GradesReportProcessor
                 $processed = $this->processGradeAssignment($assignment, $pointsAwarded, $pointsPossible);
                 $processedAssignments[] = $processed;
 
-                if ($pointsPossible > 0) {
+                if ($pointsPossible > 0 && $assignment['status'] === 'graded') {
                     $studentTotalScore += $pointsAwarded;
                     $studentTotalPossible += $pointsPossible;
                     $totalPointsAwarded += $pointsAwarded;
@@ -36,11 +36,12 @@ class GradesReportProcessor
                 ? round(($studentTotalScore / $studentTotalPossible) * 100, 1)
                 : 0;
 
+            // BELANGRIJKE FIX: Behoud de originele student structuur + voeg extra data toe
             $studentsWithScores[] = array_merge($student, [
                 'processed_assignments' => $processedAssignments,
                 'total_score' => $studentTotalScore,
                 'total_possible' => $studentTotalPossible,
-                'total_percentage' => $studentPercentage . '%'
+                'total_percentage' => $studentPercentage
             ]);
         }
 
@@ -48,11 +49,21 @@ class GradesReportProcessor
             ? round(($totalPointsAwarded / $totalPointsPossible) * 100, 1)
             : 0;
 
+        // Groepeer assignments voor table headers
+        $assignmentGroups = [];
+        if (!empty($studentsWithScores)) {
+            $firstStudent = $studentsWithScores[0];
+            if (isset($firstStudent['assignments']) && $firstStudent['assignments']->isNotEmpty()) {
+                $assignmentGroups = $firstStudent['assignments']->groupBy('module_name');
+            }
+        }
+
         return [
             'studentsWithScores' => collect($studentsWithScores),
             'totalPointsAwarded' => $totalPointsAwarded,
             'totalPointsPossible' => $totalPointsPossible,
-            'averagePercentage' => $averagePercentage
+            'averagePercentage' => $averagePercentage,
+            'assignmentGroups' => $assignmentGroups
         ];
     }
 
@@ -62,7 +73,7 @@ class GradesReportProcessor
         $percentage = $pointsPossible > 0 ? ($pointsAwarded / $pointsPossible) * 100 : 0;
 
         // Bepaal display value en kleur voor grades report
-        if ($status === 'not_submitted' || $status === 'missing') {
+        if ($status === 'unsubmitted' || $status === 'missing') {
             $displayValue = '-';
             $color = 'bg-orange-200';
             $showPointsPossible = false;
@@ -72,7 +83,7 @@ class GradesReportProcessor
             $color = 'bg-blue-200';
             $showPointsPossible = false;
             $tooltip = $assignment['assignment_name'] . ' - Ingeleverd, nog niet beoordeeld';
-        } elseif (isset($assignment['score']) && $pointsPossible > 0) {
+        } elseif ($status === 'graded' && isset($assignment['score']) && $pointsPossible > 0) {
             $displayValue = $pointsAwarded;
             $showPointsPossible = true;
             $tooltip = $assignment['assignment_name'] . " - {$pointsAwarded}/{$pointsPossible} punten (" . round($percentage, 1) . "%)";

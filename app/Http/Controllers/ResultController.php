@@ -6,6 +6,8 @@ use App\Configuration\ReportConfigurationFactory;
 use App\Services\Processing\ConfigurableReportProcessor;
 use App\Services\Processing\MissingReportProcessor;
 use App\Services\Processing\GradesReportProcessor;
+use App\Services\Processing\PercentagesReportProcessor;
+use App\Services\Analyzers\AverageCalculator;
 use App\Services\Analyzers\PerformanceAnalyzer;
 use App\Services\Analyzers\TrendAnalyzer;
 use App\Services\Analyzers\StatisticsCalculator;
@@ -19,6 +21,8 @@ class ResultController extends Controller
         protected ConfigurableReportProcessor $reportProcessor,
         protected MissingReportProcessor $missingReportProcessor,
         protected GradesReportProcessor $gradesReportProcessor,
+        protected PercentagesReportProcessor $percentagesReportProcessor,
+        protected AverageCalculator $averageCalculator,
         protected PerformanceAnalyzer $performanceAnalyzer,
         protected TrendAnalyzer $trendAnalyzer,
         protected StatisticsCalculator $statisticsCalculator,
@@ -78,16 +82,34 @@ class ResultController extends Controller
 
     protected function renderBasicReport($studentsProgress, $viewData)
     {
-        return view('results.basic-color-report', $viewData);
+        // Gebruik StatisticsCalculator voor basis statistieken
+        $statistics = $this->statisticsCalculator->calculateBasicStats($studentsProgress);
+
+        // Bereken gemiddeldes
+        $studentsWithAverages = $this->averageCalculator->calculateStudentAverages($studentsProgress);
+        $assignmentAverages = $this->averageCalculator->calculateAssignmentAverages($studentsProgress);
+        $classAverageData = $this->averageCalculator->calculateClassAverage($studentsProgress);
+
+        return view('results.basic-color-report', array_merge($viewData, [
+            'totalStudents' => $statistics['total_students'],
+            'totalAssignments' => $statistics['total_assignments'],
+            'totalSubmissions' => $statistics['total_submissions'],
+            'completionRate' => $statistics['completion_rate'],
+            'studentsWithAverages' => $studentsWithAverages,
+            'assignmentAverages' => $assignmentAverages,
+            'classAverageData' => $classAverageData,
+        ]));
     }
 
     protected function renderGradesReport($studentsProgress, $viewData)
     {
         // Gebruik de dedicated GradesReportProcessor
         $gradesData = $this->gradesReportProcessor->processGradesData($studentsProgress);
-
         $statistics = $this->statisticsCalculator->calculateBasicStats($studentsProgress);
-        $assignmentStats = $this->statisticsCalculator->calculateAssignmentStatistics($studentsProgress);
+
+        // Voeg gemiddeldes toe voor herbruikbaarheid
+        $assignmentAverages = $this->averageCalculator->calculateAssignmentAverages($studentsProgress);
+        $classAverageData = $this->averageCalculator->calculateClassAverage($studentsProgress);
 
         return view('results.grades-report', array_merge($viewData, [
             'totalStudents' => $statistics['total_students'],
@@ -95,16 +117,34 @@ class ResultController extends Controller
             'totalPointsAwarded' => $gradesData['totalPointsAwarded'],
             'totalPointsPossible' => $gradesData['totalPointsPossible'],
             'averagePercentage' => $gradesData['averagePercentage'],
-            'assignmentGroups' => $this->gradesReportProcessor->groupAssignmentsByModule($assignmentStats),
+            'assignmentGroups' => $gradesData['assignmentGroups'],
             'studentsWithScores' => $gradesData['studentsWithScores'],
+            'assignmentAverages' => $assignmentAverages,
+            'classAverageData' => $classAverageData,
         ]));
     }
 
     protected function renderPercentagesReport($studentsProgress, $viewData)
     {
+        // Hergebruik GradesReportProcessor + Statistics
+        $percentagesData = $this->percentagesReportProcessor->processPercentagesData($studentsProgress);
         $statistics = $this->statisticsCalculator->calculateBasicStats($studentsProgress);
 
-        return view('results.percentages-report', array_merge($viewData, $statistics));
+        // Voeg gemiddeldes toe voor herbruikbaarheid
+        $assignmentAverages = $this->averageCalculator->calculateAssignmentAverages($studentsProgress);
+        $classAverageData = $this->averageCalculator->calculateClassAverage($studentsProgress);
+
+        return view('results.percentages-report', array_merge($viewData, [
+            'totalStudents' => $statistics['total_students'],
+            'totalAssignments' => $statistics['total_assignments'],
+            'totalGradedAssignments' => $statistics['total_graded_assignments'],
+            'averagePercentage' => $statistics['average_percentage'],
+            'completionRate' => $statistics['completion_rate'],
+            'assignmentGroups' => $percentagesData['assignmentGroups'],
+            'studentsWithPercentages' => $percentagesData['studentsWithPercentages'],
+            'assignmentAverages' => $assignmentAverages,
+            'classAverageData' => $classAverageData,
+        ]));
     }
 
     protected function renderMissingReport($studentsProgress, $viewData)

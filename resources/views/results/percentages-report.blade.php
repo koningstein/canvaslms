@@ -4,7 +4,7 @@
 @section('content')
     <div class="mb-6">
         <h1 class="text-2xl font-bold mb-2">Percentages Rapport</h1>
-        <p class="text-gray-600">Overzicht van behaalde percentages per opdracht</p>
+        <p class="text-gray-600">Overzicht van behaalde percentages per opdracht met gemiddeldes</p>
 
         {{-- Report Type Indicator --}}
         <div class="mt-4 flex items-center gap-4">
@@ -22,30 +22,32 @@
 
     {{-- Summary Statistics --}}
     @if($studentsProgress->isNotEmpty())
-        <div class="mb-6 grid grid-cols-5 gap-3">
-            <div class="bg-white p-3 rounded-lg shadow border text-center">
-                <div class="text-xl font-bold text-blue-600">{{ $totalStudents }}</div>
-                <div class="text-xs text-gray-600">Studenten</div>
+        <div class="mb-6 grid grid-cols-5 gap-4">
+            <div class="bg-white p-4 rounded-lg shadow border text-center">
+                <div class="text-2xl font-bold text-blue-600">{{ $totalStudents }}</div>
+                <div class="text-sm text-gray-600">Studenten</div>
             </div>
 
-            <div class="bg-white p-3 rounded-lg shadow border text-center">
-                <div class="text-xl font-bold text-green-600">{{ $totalAssignments }}</div>
-                <div class="text-xs text-gray-600">Opdrachten</div>
+            <div class="bg-white p-4 rounded-lg shadow border text-center">
+                <div class="text-2xl font-bold text-green-600">{{ $totalAssignments }}</div>
+                <div class="text-sm text-gray-600">Opdrachten</div>
             </div>
 
-            <div class="bg-white p-3 rounded-lg shadow border text-center">
-                <div class="text-xl font-bold text-purple-600">{{ $totalGradedAssignments }}</div>
-                <div class="text-xs text-gray-600">Beoordeeld</div>
+            <div class="bg-white p-4 rounded-lg shadow border text-center">
+                <div class="text-2xl font-bold text-purple-600">{{ $totalGradedAssignments }}</div>
+                <div class="text-sm text-gray-600">Beoordeeld</div>
             </div>
 
-            <div class="bg-white p-3 rounded-lg shadow border text-center">
-                <div class="text-xl font-bold text-orange-600">{{ $averagePercentage }}%</div>
-                <div class="text-xs text-gray-600">Gem. percentage</div>
+            <div class="bg-white p-4 rounded-lg shadow border text-center">
+                <div class="text-2xl font-bold text-orange-600">{{ $completionRate }}%</div>
+                <div class="text-sm text-gray-600">Voltooiing</div>
             </div>
 
-            <div class="bg-white p-3 rounded-lg shadow border text-center">
-                <div class="text-xl font-bold text-gray-600">{{ $completionRate }}%</div>
-                <div class="text-xs text-gray-600">Voltooiing</div>
+            <div class="bg-white p-4 rounded-lg shadow border text-center">
+                <div class="text-2xl font-bold {{ $classAverageData['class_average_color'] ?? 'text-gray-600' }}">
+                    {{ $classAverageData['class_average_display'] ?? 'N/A' }}
+                </div>
+                <div class="text-sm text-gray-600">Klas Gemiddelde</div>
             </div>
         </div>
     @endif
@@ -94,7 +96,7 @@
                     </th>
                 @endforeach
                 <th class="px-2 py-3 border-l-2 border-teal-300 text-center text-sm font-semibold text-teal-700 bg-teal-50">
-                    Gemiddelde
+                    Student Gem.
                 </th>
             </tr>
             <tr class="bg-gray-25 border-b border-gray-200">
@@ -107,7 +109,7 @@
                             <div class="truncate" title="{{ $assignment['assignment_name'] }} ({{ $assignment['points_possible'] }} punten)">
                                 {{ Str::limit($assignment['assignment_name'], 15) }}
                             </div>
-                            <div class="text-xs text-gray-400 mt-1" style="writing-mode: horizontal-tb;">
+                            <div class="text-xs text-gray-600 mt-1" style="writing-mode: horizontal-tb;">
                                 ({{ $assignment['points_possible'] }}p)
                             </div>
                         </th>
@@ -131,25 +133,66 @@
                             @endif
                         </div>
                     </td>
-                    @foreach($student['processed_assignments'] as $assignment)
-                        <td class="px-1 py-2 border-r border-gray-200 text-xs text-center {{ $assignment['color'] }} max-w-20"
-                            title="{{ $assignment['tooltip'] }}">
-                            <div class="font-medium">
-                                {{ $assignment['display_value'] }}
-                            </div>
-                        </td>
+                    @foreach($assignmentGroups as $moduleName => $assignments)
+                        @foreach($assignments as $assignment)
+                            @php
+                                $studentAssignment = $student['assignments']->where('assignment_name', $assignment['assignment_name'])->first();
+                            @endphp
+                            <td class="px-1 py-2 border-r border-gray-200 text-xs text-center {{ $studentAssignment['color'] ?? 'bg-gray-100' }} max-w-20"
+                                title="{{ $assignment['assignment_name'] }} - {{ $studentAssignment['display_value'] ?? 'Geen data' }}">
+                                <div class="font-medium">
+                                    {{ $studentAssignment['display_value'] ?? '' }}
+                                </div>
+                            </td>
+                        @endforeach
                     @endforeach
                     <td class="px-2 py-2 border-l-2 border-teal-300 text-sm text-center bg-teal-50">
                         <div class="font-bold text-teal-800">
-                            {{ $student['average_percentage'] }}%
+                            {{ $student['average_percentage'] ?? 0 }}%
                         </div>
                         <div class="text-xs text-teal-600">
-                            {{ $student['graded_count'] }}/{{ $student['total_assignments'] }} beoordeeld
+                            {{ $student['graded_count'] ?? 0 }}/{{ $student['total_assignments'] ?? 0 }} beoordeeld
                         </div>
                     </td>
                 </tr>
             @endforeach
             </tbody>
+            @if(isset($assignmentAverages) && $assignmentAverages->isNotEmpty())
+                <tfoot>
+                {{-- Opdracht Gemiddeldes Rij - ONDER alle studenten --}}
+                <tr class="bg-yellow-50 border-t-2 border-yellow-300">
+                    <td class="px-2 py-2 border-r border-gray-200 text-sm font-semibold text-gray-800 sticky left-0 bg-yellow-50 z-10 max-w-40">
+                        Opdracht Gemiddelde
+                    </td>
+                    @foreach($assignmentGroups as $moduleName => $assignments)
+                        @foreach($assignments as $assignment)
+                            @php
+                                $assignmentAverage = $assignmentAverages->where('assignment_name', $assignment['assignment_name'])->first();
+                            @endphp
+                            <td class="px-1 py-2 border-r border-gray-200 text-xs text-center {{ $assignmentAverage['average_color'] ?? 'bg-gray-200' }} max-w-20"
+                                title="{{ $assignment['assignment_name'] }} - Gemiddelde: {{ $assignmentAverage['average_display'] ?? 'N/A' }}">
+                                <div class="font-medium">
+                                    {{ $assignmentAverage['average_display'] ?? '-' }}
+                                </div>
+                                @if($assignmentAverage && $assignmentAverage['graded_count'] > 0)
+                                    <div class="text-xs text-gray-600">
+                                        ({{ $assignmentAverage['graded_count'] }})
+                                    </div>
+                                @endif
+                            </td>
+                        @endforeach
+                    @endforeach
+                    <td class="px-2 py-2 border-l-2 border-teal-300 text-sm text-center bg-teal-50">
+                        <div class="font-bold text-teal-800">
+                            {{ $classAverageData['class_average_display'] ?? 'N/A' }}
+                        </div>
+                        <div class="text-xs text-teal-600">
+                            Klas totaal
+                        </div>
+                    </td>
+                </tr>
+                </tfoot>
+            @endif
         </table>
     </div>
 
