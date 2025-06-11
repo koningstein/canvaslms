@@ -13,7 +13,8 @@
             </span>
 
             {{-- Back to selection button --}}
-            <a href="{{ route('results.select') }}" class="ml-auto px-4 py-2 bg-gray-600 text-white text-sm rounded hover:bg-gray-700">
+            <a href="{{ route('results.select') }}"
+               class="ml-auto px-4 py-2 bg-gray-600 text-white text-sm rounded hover:bg-gray-700">
                 Ander rapport genereren
             </a>
         </div>
@@ -91,44 +92,12 @@
                 </th>
                 @if($studentsProgress->isNotEmpty())
                     @foreach($studentsProgress->first()['assignments']->groupBy('module_name') as $moduleName => $assignments)
-                        <th class="px-2 py-3 border-r border-gray-200 text-center text-sm font-semibold text-gray-700" colspan="{{ $assignments->count() }}">
+                        <th class="px-2 py-3 border-r border-gray-200 text-center text-sm font-semibold text-gray-700"
+                            colspan="{{ $assignments->count() }}">
                             {{ $moduleName }}
                         </th>
-            @endforeach
-            {{-- Opdracht Gemiddeldes Rij --}}
-            <tr class="bg-yellow-50 border-t-2 border-yellow-300">
-                <td class="px-2 py-2 border-r border-gray-200 text-sm font-semibold text-gray-800 sticky left-0 bg-yellow-50 z-10 max-w-40">
-                    Opdracht Gemiddelde
-                </td>
-                @if($studentsProgress->isNotEmpty())
-                    @foreach($studentsProgress->first()['assignments']->groupBy('module_name') as $moduleName => $assignments)
-                        @foreach($assignments as $assignment)
-                            @php
-                                $assignmentAverage = $assignmentAverages->where('assignment_name', $assignment['assignment_name'])->first();
-                            @endphp
-                            <td class="px-1 py-2 border-r border-gray-200 text-xs text-center {{ $assignmentAverage['average_color'] ?? 'bg-gray-200' }} max-w-16"
-                                title="{{ $assignment['assignment_name'] }} - Gemiddelde: {{ $assignmentAverage['average_display'] ?? 'N/A' }}">
-                                <div class="font-medium">
-                                    {{ $assignmentAverage['average_display'] ?? '-' }}
-                                </div>
-                                @if($assignmentAverage && $assignmentAverage['graded_count'] > 0)
-                                    <div class="text-xs text-gray-600">
-                                        ({{ $assignmentAverage['graded_count'] }})
-                                    </div>
-                                @endif
-                            </td>
-                        @endforeach
                     @endforeach
-                @endif
-                <td class="px-2 py-2 border-l-2 border-blue-300 text-sm text-center bg-blue-50">
-                    <div class="font-bold text-blue-800">
-                        {{ $classAverageData['class_average_display'] ?? 'N/A' }}
-                    </div>
-                    <div class="text-xs text-blue-600">
-                        Klas totaal
-                    </div>
-                </td>
-            </tr>
+
             @endif
             <th class="px-2 py-3 border-l-2 border-blue-300 text-center text-sm font-semibold text-blue-700 bg-blue-50">
                 Student Gem.
@@ -141,7 +110,8 @@
                 @if($studentsProgress->isNotEmpty())
                     @foreach($studentsProgress->first()['assignments']->groupBy('module_name') as $moduleName => $assignments)
                         @foreach($assignments as $assignment)
-                            <th class="px-1 py-1 border-r border-gray-200 text-center text-xs font-medium text-gray-600 max-w-16" style="writing-mode: vertical-lr; text-orientation: mixed;">
+                            <th class="px-1 py-1 border-r border-gray-200 text-center text-xs font-medium text-gray-600 max-w-16"
+                                style="writing-mode: vertical-lr; text-orientation: mixed;">
                                 <div class="truncate" title="{{ $assignment['assignment_name'] }}">
                                     {{ Str::limit($assignment['assignment_name'], 15) }}
                                 </div>
@@ -192,6 +162,40 @@
                     </td>
                 </tr>
             @endforeach
+            {{-- Opdracht Gemiddeldes Rij --}}
+            <tr class="bg-yellow-50 border-t-2 border-yellow-300">
+                <td class="px-2 py-2 border-r border-gray-200 text-sm font-semibold text-gray-800 sticky left-0 bg-yellow-50 z-10 max-w-40">
+                    Opdracht Gemiddelde
+                </td>
+                @if($studentsProgress->isNotEmpty())
+                    @foreach($studentsProgress->first()['assignments']->groupBy('module_name') as $moduleName => $assignments)
+                        @foreach($assignments as $assignment)
+                            @php
+                                $assignmentAverage = $assignmentAverages->where('assignment_name', $assignment['assignment_name'])->first();
+                            @endphp
+                            <td class="px-1 py-2 border-r border-gray-200 text-xs text-center {{ $assignmentAverage['average_color'] ?? 'bg-gray-200' }} max-w-16"
+                                title="{{ $assignment['assignment_name'] }} - Gemiddelde: {{ $assignmentAverage['average_display'] ?? 'N/A' }}">
+                                <div class="font-medium">
+                                    {{ $assignmentAverage['average_display'] ?? '-' }}
+                                </div>
+                                @if($assignmentAverage && $assignmentAverage['graded_count'] > 0)
+                                    <div class="text-xs text-gray-600">
+                                        ({{ $assignmentAverage['graded_count'] }})
+                                    </div>
+                                @endif
+                            </td>
+                        @endforeach
+                    @endforeach
+                @endif
+                <td class="px-2 py-2 border-l-2 border-blue-300 text-sm text-center bg-blue-50">
+                    <div class="font-bold text-blue-800">
+                        {{ $classAverageData['class_average_display'] ?? 'N/A' }}
+                    </div>
+                    <div class="text-xs text-blue-600">
+                        Klas totaal
+                    </div>
+                </td>
+            </tr>
             </tbody>
         </table>
     </div>
@@ -201,7 +205,8 @@
         <button onclick="window.print()" class="px-4 py-2 bg-gray-600 text-white text-sm rounded hover:bg-gray-700">
             Afdrukken
         </button>
-        <a href="{{ route('results.select') }}" class="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
+        <a href="{{ route('results.select') }}"
+           class="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
             Nieuw rapport
         </a>
     </div>
@@ -209,14 +214,37 @@
     {{-- Print Styles --}}
     <style>
         @media print {
-            .sidebar, nav, .no-print { display: none !important; }
-            .overflow-x-auto { overflow: visible !important; }
-            table { font-size: 10px !important; }
-            th, td { padding: 2px 4px !important; }
-            .sticky { position: static !important; }
-            body { font-size: 12px !important; }
-            .bg-white { background: white !important; }
-            .shadow { box-shadow: none !important; }
+            .sidebar, nav, .no-print {
+                display: none !important;
+            }
+
+            .overflow-x-auto {
+                overflow: visible !important;
+            }
+
+            table {
+                font-size: 10px !important;
+            }
+
+            th, td {
+                padding: 2px 4px !important;
+            }
+
+            .sticky {
+                position: static !important;
+            }
+
+            body {
+                font-size: 12px !important;
+            }
+
+            .bg-white {
+                background: white !important;
+            }
+
+            .shadow {
+                box-shadow: none !important;
+            }
         }
     </style>
 @endsection
