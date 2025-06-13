@@ -14,13 +14,13 @@
             </span>
 
             {{-- Back to selection button --}}
-            <a href="{{ route('results.select') }}" class="ml-auto px-4 py-2 bg-gray-600 text-white text-sm rounded hover:bg-gray-700">
+            <a href="{{ route('results.select') }}" class="ml-auto px-4 py-2 bg-gray-600 text-white text-sm rounded hover:bg-gray-700 print:hidden">
                 Ander rapport genereren
             </a>
         </div>
     </div>
 
-    {{-- Key Performance Indicators - COMPACTER OP 1 REGEL --}}
+    {{-- Key Performance Indicators --}}
     <div class="mb-6 bg-white p-4 rounded-lg shadow">
         <div class="grid grid-cols-6 gap-4 text-center">
             <div>
@@ -50,23 +50,23 @@
         </div>
     </div>
 
-    {{-- Charts Row - COMPACTER --}}
+    {{-- Charts Row - COMPACT DESIGN --}}
     <div class="mb-6 grid grid-cols-3 gap-4">
         {{-- Student Performance Chart --}}
         <div class="bg-white p-4 rounded-lg shadow">
-            <h3 class="text-sm font-semibold mb-3 text-gray-800">Student Prestaties</h3>
+            <h3 class="text-sm font-semibold mb-3 text-gray-800">📊 Student Prestaties</h3>
             <div id="studentPerformanceChart" class="h-48"></div>
         </div>
 
-        {{-- Performance Distribution - KLEINER --}}
+        {{-- Performance Distribution --}}
         <div class="bg-white p-4 rounded-lg shadow">
-            <h3 class="text-sm font-semibold mb-3 text-gray-800">Prestatie Verdeling</h3>
+            <h3 class="text-sm font-semibold mb-3 text-gray-800">🎯 Prestatie Verdeling</h3>
             <div id="performanceDistributionChart" class="h-48"></div>
         </div>
 
-        {{-- Module Performance Chart - NIEUW IN DEZE RIJ --}}
+        {{-- Module Performance Chart --}}
         <div class="bg-white p-4 rounded-lg shadow">
-            <h3 class="text-sm font-semibold mb-3 text-gray-800">Module Prestaties</h3>
+            <h3 class="text-sm font-semibold mb-3 text-gray-800">📚 Module Prestaties</h3>
             <div id="modulePerformanceChart" class="h-48"></div>
         </div>
     </div>
@@ -252,191 +252,43 @@
     </div>
 
     {{-- Print/Export Options --}}
-    <div class="mt-6 flex justify-end gap-2">
+    <div class="mt-6 flex justify-end gap-2 print:hidden">
         <button onclick="window.print()" class="px-4 py-2 bg-gray-600 text-white text-sm rounded hover:bg-gray-700">
-            Afdrukken
+            📄 Afdrukken
         </button>
         <a href="{{ route('results.select') }}" class="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
-            Nieuw rapport
+            🔄 Nieuw rapport
         </a>
     </div>
+@endsection
 
-    {{-- ApexCharts Scripts --}}
+@push('styles')
+    <link rel="stylesheet" href="{{ asset('css/averages-report.css') }}">
+@endpush
+
+@push('scripts')
+    <script src="{{ asset('js/averages-charts.js') }}"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            @if(isset($chartData))
-            // Student Performance Bar Chart - COMPACTER
-            @if(isset($chartData['studentNames']) && count($chartData['studentNames']) > 0)
-            const studentPerformanceOptions = {
-                series: [{
-                    name: 'Gemiddelde %',
-                    data: @json($chartData['studentPerformances'] ?? [])
-                }],
-                chart: {
-                    type: 'bar',
-                    height: 180,
-                    toolbar: { show: false }
-                },
-                plotOptions: {
-                    bar: {
-                        horizontal: true,
-                        distributed: true,
-                        dataLabels: { position: 'center' }
-                    }
-                },
-                colors: @json($chartData['studentColors'] ?? []),
-                dataLabels: {
-                    enabled: true,
-                    formatter: function(val) {
-                        return val + '%';
-                    },
-                    style: { fontSize: '10px', fontWeight: 'bold' }
-                },
-                xaxis: {
-                    categories: @json($chartData['studentNames'] ?? []),
-                    max: 100,
-                    labels: { show: false }
-                },
-                yaxis: {
-                    labels: {
-                        show: true,
-                        maxWidth: 100,
-                        style: { fontSize: '9px' }
-                    }
-                },
-                legend: { show: false },
-                grid: { show: false }
-            };
-            new ApexCharts(document.querySelector("#studentPerformanceChart"), studentPerformanceOptions).render();
-            @endif
+            // Initialize charts with data from PHP
+            const averagesCharts = new AveragesCharts();
 
-            // Performance Distribution Donut Chart - COMPACTER
-            @if(isset($chartData['distributionValues']) && array_sum($chartData['distributionValues']) > 0)
-            const distributionOptions = {
-                series: @json($chartData['distributionValues'] ?? []),
-                chart: {
-                    type: 'donut',
-                    height: 180
-                },
-                labels: @json($chartData['distributionLabels'] ?? []),
-                colors: ['#10B981', '#F59E0B', '#EF4444'],
-                legend: {
-                    position: 'bottom',
-                    fontSize: '10px'
-                },
-                dataLabels: {
-                    enabled: true,
-                    formatter: function(val, opts) {
-                        return opts.w.config.series[opts.seriesIndex];
-                    },
-                    style: { fontSize: '10px' }
-                }
-            };
-            new ApexCharts(document.querySelector("#performanceDistributionChart"), distributionOptions).render();
-            @endif
+            // Chart data from PHP
+            const chartData = @json($chartData ?? []);
+            const trendData = @json($trendData ?? []);
 
-            // Module Performance Chart - COMPACTER
-            @if(isset($chartData['moduleNames']) && count($chartData['moduleNames']) > 0)
-            const moduleOptions = {
-                series: [{
-                    name: 'Gemiddelde %',
-                    data: @json($chartData['modulePerformances'] ?? [])
-                }],
-                chart: {
-                    type: 'column',
-                    height: 180,
-                    toolbar: { show: false }
-                },
-                plotOptions: {
-                    bar: {
-                        distributed: true,
-                        dataLabels: { position: 'top' }
-                    }
-                },
-                colors: @json($chartData['moduleColors'] ?? []),
-                dataLabels: {
-                    enabled: true,
-                    formatter: function(val) {
-                        return val + '%';
-                    },
-                    offsetY: -15,
-                    style: { fontSize: '9px', fontWeight: 'bold' }
-                },
-                xaxis: {
-                    categories: @json($chartData['moduleNames'] ?? []),
-                    labels: {
-                        style: { fontSize: '9px' },
-                        rotate: -45
-                    }
-                },
-                yaxis: {
-                    max: 100,
-                    labels: {
-                        formatter: function(val) {
-                            return val + '%';
-                        },
-                        style: { fontSize: '9px' }
-                    }
-                },
-                legend: { show: false }
-            };
-            new ApexCharts(document.querySelector("#modulePerformanceChart"), moduleOptions).render();
-            @endif
-            @endif
+            // Initialize all charts
+            averagesCharts.init(chartData, trendData);
 
-            // Trend Chart (if data available) - COMPACTER
-            @if(isset($trendData['values']) && count($trendData['values']) > 0)
-            const trendOptions = {
-                series: [{
-                    name: 'Gemiddelde Score',
-                    data: @json($trendData['values'])
-                }],
-                chart: {
-                    type: 'line',
-                    height: 180,
-                    toolbar: { show: false }
-                },
-                stroke: {
-                    curve: 'smooth',
-                    width: 2
-                },
-                colors: ['#8B5CF6'],
-                dataLabels: {
-                    enabled: true,
-                    formatter: function(val) {
-                        return val + '%';
-                    },
-                    style: { fontSize: '9px' }
-                },
-                xaxis: {
-                    categories: @json($trendData['dates']),
-                    labels: { style: { fontSize: '9px' } }
-                },
-                yaxis: {
-                    max: 100,
-                    labels: {
-                        formatter: function(val) {
-                            return val + '%';
-                        },
-                        style: { fontSize: '9px' }
-                    }
-                }
-            };
-            new ApexCharts(document.querySelector("#trendChart"), trendOptions).render();
-            @endif
+            // Handle window resize
+            window.addEventListener('resize', function() {
+                averagesCharts.handleResize();
+            });
+
+            // Cleanup on page unload
+            window.addEventListener('beforeunload', function() {
+                averagesCharts.destroyAll();
+            });
         });
     </script>
-
-    {{-- Print Styles --}}
-    <style>
-        @media print {
-            .sidebar, nav, .no-print { display: none !important; }
-            .grid { display: block !important; }
-            .grid > div { margin-bottom: 1rem !important; }
-            body { font-size: 12px !important; }
-            .bg-white { background: white !important; }
-            .shadow { box-shadow: none !important; }
-            .rounded-lg { border: 1px solid #e5e7eb !important; }
-        }
-    </style>
-@endsection
+@endpush

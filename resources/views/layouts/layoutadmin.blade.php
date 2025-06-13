@@ -8,6 +8,7 @@
     <link href="{{ asset('css/style.css') }}" rel="stylesheet" type="text/css">
     <script src="https://cdn.jsdelivr.net/npm/apexcharts" defer></script>
     <script src="{{ asset('js/scripts.js') }}" defer></script>
+    @stack('styles')
     <!-- Alpine.js -->
 {{--    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>--}}
     @livewireStyles
@@ -112,6 +113,7 @@
         @yield('content')
     </div>
 </main>
+@stack('scripts')
 @livewireScripts
 </body>
 </html>

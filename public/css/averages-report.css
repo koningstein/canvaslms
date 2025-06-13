@@ -1,0 +1,398 @@
+/**
+ * Averages Report Styles
+ * Custom CSS for the averages report page and charts
+ */
+
+/* Chart Container Styles - COMPACT */
+[id$="Chart"] {
+    min-height: 180px;
+    position: relative;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Chart Loading State */
+[id$="Chart"]:empty::before {
+    content: "📊 Grafiek wordt geladen...";
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 200px;
+    color: #6b7280;
+    font-size: 14px;
+    background-color: #f9fafb;
+    border: 2px dashed #d1d5db;
+    border-radius: 8px;
+}
+
+/* ApexCharts Global Overrides */
+.apexcharts-canvas {
+    margin: 0 auto;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.apexcharts-legend {
+    justify-content: center !important;
+    font-family: 'Inter', sans-serif !important;
+}
+
+.apexcharts-legend-text {
+    color: #374151 !important;
+    font-weight: 500 !important;
+}
+
+.apexcharts-tooltip {
+    font-family: 'Inter', sans-serif !important;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+    border-radius: 8px !important;
+}
+
+.apexcharts-tooltip-title {
+    font-weight: 600 !important;
+    border-bottom: 1px solid #e5e7eb !important;
+}
+
+/* Chart Container Cards */
+.chart-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+    transition: all 0.2s ease-in-out;
+}
+
+.chart-card:hover {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.chart-card h3 {
+    color: #1f2937;
+    font-weight: 600;
+    font-size: 0.875rem;
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Performance Indicators */
+.performance-indicator {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1;
+}
+
+.performance-good {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.performance-sufficient {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.performance-insufficient {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+/* Student Lists */
+.student-list {
+    max-height: 16rem;
+    overflow-y: auto;
+}
+
+.student-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.student-list::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 3px;
+}
+
+.student-list::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+}
+
+.student-list::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+.student-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f1f5f9;
+    transition: background-color 0.15s ease-in-out;
+}
+
+.student-item:last-child {
+    border-bottom: none;
+}
+
+.student-item:hover {
+    background-color: #f8fafc;
+    border-radius: 4px;
+    margin: 0 -0.5rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
+.student-rank {
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    margin-right: 0.5rem;
+}
+
+.student-rank.rank-top {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.student-rank.rank-attention {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+/* Assignment Analysis Table */
+.assignment-table {
+    font-size: 0.875rem;
+}
+
+.assignment-table th {
+    background-color: #f9fafb;
+    font-weight: 600;
+    color: #374151;
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.assignment-table td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.assignment-table tr:hover {
+    background-color: #f9fafb;
+}
+
+.assignment-table .assignment-name {
+    font-weight: 500;
+    color: #1f2937;
+}
+
+.assignment-table .module-name {
+    color: #6b7280;
+    font-size: 0.8125rem;
+}
+
+/* Status Badges */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.375rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1;
+}
+
+.status-complete {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.status-partial {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.status-incomplete {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.status-unknown {
+    background-color: #f3f4f6;
+    color: #6b7280;
+}
+
+/* Insights Section */
+.insights-section {
+    background: linear-gradient(135deg, #f3e8ff 0%, #e0e7ff 100%);
+}
+
+.insights-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.insights-list li {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 0.5rem;
+    font-size: 0.8125rem;
+    line-height: 1.4;
+}
+
+.insights-list li:last-child {
+    margin-bottom: 0;
+}
+
+.insights-bullet {
+    color: #8b5cf6;
+    margin-right: 0.5rem;
+    font-weight: bold;
+    flex-shrink: 0;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+    .chart-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    [id$="Chart"] {
+        min-height: 250px;
+    }
+
+    .student-list {
+        max-height: 12rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .chart-card {
+        padding: 1rem;
+    }
+
+    .chart-card h3 {
+        font-size: 0.8125rem;
+    }
+
+    [id$="Chart"] {
+        min-height: 220px;
+    }
+
+    .assignment-table {
+        font-size: 0.8125rem;
+    }
+
+    .assignment-table th,
+    .assignment-table td {
+        padding: 0.5rem 0.75rem;
+    }
+}
+
+/* Print Styles */
+@media print {
+    .sidebar,
+    nav,
+    .no-print,
+    button,
+    .print\\:hidden {
+        display: none !important;
+    }
+
+    .grid {
+        display: block !important;
+    }
+
+    .grid > div {
+        margin-bottom: 1rem !important;
+        page-break-inside: avoid;
+    }
+
+    body {
+        font-size: 12px !important;
+        line-height: 1.4 !important;
+    }
+
+    .bg-white {
+        background: white !important;
+    }
+
+    .shadow {
+        box-shadow: none !important;
+        border: 1px solid #e5e7eb !important;
+    }
+
+    .rounded-lg {
+        border-radius: 4px !important;
+    }
+
+    /* Hide charts in print - replace with placeholder text */
+    [id$="Chart"] {
+        display: none !important;
+    }
+
+    [id$="Chart"]::after {
+        content: "[Grafiek niet beschikbaar in print versie]";
+        display: block !important;
+        text-align: center;
+        padding: 2rem;
+        color: #6b7280;
+        font-style: italic;
+        border: 1px dashed #d1d5db;
+        border-radius: 4px;
+    }
+
+    .chart-card {
+        page-break-inside: avoid;
+    }
+
+    .student-list,
+    .assignment-table {
+        max-height: none !important;
+        overflow: visible !important;
+    }
+}
+
+/* Dark mode support (if needed) */
+@media (prefers-color-scheme: dark) {
+    .apexcharts-canvas {
+        filter: invert(1) hue-rotate(180deg);
+    }
+
+    .chart-card {
+        background: #1f2937;
+        color: #f9fafb;
+    }
+
+    .chart-card h3 {
+        color: #f9fafb;
+    }
+}
+
+/* Loading Animation */
+@keyframes chartPulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.chart-loading {
+    animation: chartPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
