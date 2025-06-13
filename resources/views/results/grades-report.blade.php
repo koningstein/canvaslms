@@ -20,9 +20,10 @@
         </div>
     </div>
 
+
     {{-- Summary Statistics --}}
     @if(isset($studentsWithScores) && $studentsWithScores->isNotEmpty())
-        <div class="mb-6 grid grid-cols-6 gap-3">
+        <div class="mb-6 grid grid-cols-5 gap-3">
             <div class="bg-white p-3 rounded-lg shadow border text-center">
                 <div class="text-xl font-bold text-blue-600">{{ $totalStudents ?? $studentsWithScores->count() }}</div>
                 <div class="text-xs text-gray-600">Studenten</div>
@@ -41,11 +42,6 @@
             <div class="bg-white p-3 rounded-lg shadow border text-center">
                 <div class="text-xl font-bold text-orange-600">{{ $totalPointsPossible ?? 0 }}</div>
                 <div class="text-xs text-gray-600">Punten mogelijk</div>
-            </div>
-
-            <div class="bg-white p-3 rounded-lg shadow border text-center">
-                <div class="text-xl font-bold text-gray-600">{{ $averagePercentage ?? 0 }}%</div>
-                <div class="text-xs text-gray-600">Gemiddeld percentage</div>
             </div>
 
             <div class="bg-white p-3 rounded-lg shadow border text-center">
@@ -128,7 +124,7 @@
                                     <div class="truncate" title="{{ $assignment['assignment_name'] }} ({{ $assignment['points_possible'] ?? 'N/A' }} punten)">
                                         {{ Str::limit($assignment['assignment_name'], 15) }}
                                     </div>
-                                    <div class="text-xs text-gray-400 mt-1" style="writing-mode: horizontal-tb;">
+                                    <div class="text-xs text-gray-600 mt-1" style="writing-mode: horizontal-tb;">
                                         ({{ $assignment['points_possible'] ?? 'N/A' }}p)
                                     </div>
                                 </th>

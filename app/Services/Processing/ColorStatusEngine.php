@@ -74,7 +74,7 @@ class ColorStatusEngine
     protected function getSufficientDisplay(ReportConfiguration $config, float $percentage, float $score): string
     {
         return match ($config->reportType) {
-            'basic' => $config->displayFormats['sufficient'] ?? 'Voldoende',
+            'basic' => $config->displayFormats['sufficient'] ?? '',
             'grades' => number_format($score, $config->displayFormats['decimals'] ?? 1),
             'percentages', 'averages' => number_format($percentage, 0) . '%',
             default => 'Voldoende'
@@ -84,7 +84,7 @@ class ColorStatusEngine
     protected function getInsufficientDisplay(ReportConfiguration $config, float $percentage, float $score): string
     {
         return match ($config->reportType) {
-            'basic' => $config->displayFormats['insufficient'] ?? 'Onvoldoende',
+            'basic' => $config->displayFormats['insufficient'] ?? '',
             'grades' => number_format($score, $config->displayFormats['decimals'] ?? 1),
             'percentages', 'averages' => number_format($percentage, 0) . '%',
             default => 'Onvoldoende'
@@ -94,7 +94,7 @@ class ColorStatusEngine
     protected function getSubmittedDisplay(ReportConfiguration $config): string
     {
         return match ($config->reportType) {
-            'basic' => $config->displayFormats['submitted'] ?? 'Ingeleverd',
+            'basic' => $config->displayFormats['submitted'] ?? '',
             'attention' => 'Nakijken',
             default => ''
         };
@@ -103,10 +103,10 @@ class ColorStatusEngine
     protected function getUnsubmittedDisplay(ReportConfiguration $config): string
     {
         return match ($config->reportType) {
-            'basic' => $config->displayFormats['missing'] ?? 'Niet ingeleverd',
-            'missing' => $config->displayFormats['missing'] ?? 'Ontbreekt',
+            'basic' => $config->displayFormats['missing'] ?? '',
+            'missing' => $config->displayFormats['missing'] ?? '',
             'attention' => 'Hulp nodig',
-            default => 'Niet ingeleverd'
+            default => ''
         };
     }
 
