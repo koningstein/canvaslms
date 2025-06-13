@@ -171,6 +171,15 @@ class ResultController extends Controller
         // Gebruik de dedicated AveragesReportProcessor
         $averagesData = $this->averagesReportProcessor->processAveragesData($studentsProgress);
 
+        // Debug logging
+        Log::info('Averages report data', [
+            'chart_data_keys' => array_keys($averagesData['chartData'] ?? []),
+            'module_names_count' => count($averagesData['chartData']['moduleNames'] ?? []),
+            'module_performances_count' => count($averagesData['chartData']['modulePerformances'] ?? []),
+            'assignment_analysis_count' => $averagesData['assignmentAnalysis']->count(),
+            'students_progress_count' => $studentsProgress->count()
+        ]);
+
         return view('results.averages-report', array_merge($viewData, [
             'overallClassAverage' => $averagesData['statistics']['average_percentage'],
             'highestStudentAverage' => $averagesData['performanceData']['highestStudentAverage'],
@@ -181,7 +190,7 @@ class ResultController extends Controller
             'topPerformers' => $averagesData['performanceData']['topPerformers'],
             'lowPerformers' => $averagesData['performanceData']['lowPerformers'],
             'assignmentAnalysis' => $averagesData['assignmentAnalysis'],
-            'chartData' => $averagesData['chartData'],
+            'chartData' => $averagesData['chartData'], // Dit is cruciaal!
             'trendData' => $averagesData['trendData'],
             'insights' => $averagesData['insights'],
         ]));

@@ -68,13 +68,7 @@
         </div>
     </div>
 
-    {{-- Module Performance Chart --}}
-    <div class="mb-8">
-        <div class="bg-white p-6 rounded-lg shadow">
-            <h3 class="text-lg font-semibold mb-4 text-gray-800">Module/Opdracht Gemiddelden</h3>
-            <div id="modulePerformanceChart" class="h-80"></div>
-        </div>
-    </div>
+
 
     {{-- Analysis Tables Row --}}
     <div class="mb-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -163,7 +157,7 @@
                     </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200">
-                    @if(isset($assignmentAnalysis))
+                    @if(isset($assignmentAnalysis) && $assignmentAnalysis->isNotEmpty())
                         @foreach($assignmentAnalysis as $assignment)
                             <tr class="hover:bg-gray-50">
                                 <td class="px-6 py-4 text-sm font-medium text-gray-900">
@@ -214,7 +208,7 @@
     </div>
 
     {{-- Trend Analysis --}}
-    @if(isset($trendData) && count($trendData) > 0)
+    @if(isset($trendData['values']) && count($trendData['values']) > 0)
         <div class="mb-8">
             <div class="bg-white p-6 rounded-lg shadow">
                 <h3 class="text-lg font-semibold mb-4 text-gray-800">📈 Trend Analyse (Inlever Tijden)</h3>
@@ -234,7 +228,7 @@
                     <div>
                         <h4 class="font-semibold text-gray-800 mb-3">🎯 Prestatie Inzichten</h4>
                         <ul class="space-y-2 text-sm text-gray-600">
-                            @if(isset($insights['performance']))
+                            @if(isset($insights['performance']) && is_array($insights['performance']))
                                 @foreach($insights['performance'] as $insight)
                                     <li class="flex items-start">
                                         <span class="text-purple-500 mr-2">•</span>
@@ -249,7 +243,7 @@
                     <div>
                         <h4 class="font-semibold text-gray-800 mb-3">📚 Opdracht Inzichten</h4>
                         <ul class="space-y-2 text-sm text-gray-600">
-                            @if(isset($insights['assignments']))
+                            @if(isset($insights['assignments']) && is_array($insights['assignments']))
                                 @foreach($insights['assignments'] as $insight)
                                     <li class="flex items-start">
                                         <span class="text-purple-500 mr-2">•</span>
@@ -279,161 +273,141 @@
     {{-- ApexCharts Scripts --}}
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('Initializing charts for averages report...');
+
             @if(isset($chartData))
+
             // Student Performance Bar Chart
-            @if(isset($chartData['studentNames']) && count($chartData['studentNames']) > 0)
-            const studentPerformanceOptions = {
-                series: [{
-                    name: 'Gemiddelde %',
-                    data: @json($chartData['studentPerformances'] ?? [])
-                }],
-                chart: {
-                    type: 'bar',
-                    height: 250,
-                    toolbar: { show: false }
-                },
-                plotOptions: {
-                    bar: {
-                        horizontal: true,
-                        distributed: true,
-                        dataLabels: { position: 'center' }
-                    }
-                },
-                colors: @json($chartData['studentColors'] ?? []),
-                dataLabels: {
-                    enabled: true,
-                    formatter: function(val) {
-                        return val + '%';
+            @if(isset($chartData['studentNames']) && is_array($chartData['studentNames']) && count($chartData['studentNames']) > 0)
+                try {
+                const studentPerformanceOptions = {
+                    series: [{
+                        name: 'Gemiddelde %',
+                        data: @json($chartData['studentPerformances'] ?? [])
+                    }],
+                    chart: {
+                        type: 'bar',
+                        height: 250,
+                        toolbar: { show: false }
                     },
-                    style: { fontSize: '12px', fontWeight: 'bold' }
-                },
-                xaxis: {
-                    categories: @json($chartData['studentNames'] ?? []),
-                    max: 100,
-                    labels: { show: false }
-                },
-                yaxis: {
-                    labels: {
-                        show: true,
-                        maxWidth: 120,
-                        style: { fontSize: '11px' }
-                    }
-                },
-                legend: { show: false },
-                grid: { show: false }
-            };
-            new ApexCharts(document.querySelector("#studentPerformanceChart"), studentPerformanceOptions).render();
+                    plotOptions: {
+                        bar: {
+                            horizontal: true,
+                            distributed: true,
+                            dataLabels: { position: 'center' }
+                        }
+                    },
+                    colors: @json($chartData['studentColors'] ?? []),
+                    dataLabels: {
+                        enabled: true,
+                        formatter: function(val) {
+                            return val + '%';
+                        },
+                        style: { fontSize: '12px', fontWeight: 'bold' }
+                    },
+                    xaxis: {
+                        categories: @json($chartData['studentNames'] ?? []),
+                        max: 100,
+                        labels: { show: false }
+                    },
+                    yaxis: {
+                        labels: {
+                            show: true,
+                            maxWidth: 120,
+                            style: { fontSize: '11px' }
+                        }
+                    },
+                    legend: { show: false },
+                    grid: { show: false }
+                };
+                new ApexCharts(document.querySelector("#studentPerformanceChart"), studentPerformanceOptions).render();
+                console.log('Student performance chart rendered successfully');
+            } catch (error) {
+                console.error('Error rendering student performance chart:', error);
+            }
+            @else
+            document.querySelector("#studentPerformanceChart").innerHTML = '<div class="flex items-center justify-center h-full text-gray-500">Geen student data beschikbaar</div>';
             @endif
 
             // Performance Distribution Donut Chart
-            @if(isset($chartData['distributionValues']) && array_sum($chartData['distributionValues']) > 0)
-            const distributionOptions = {
-                series: @json($chartData['distributionValues'] ?? []),
-                chart: {
-                    type: 'donut',
-                    height: 250
-                },
-                labels: @json($chartData['distributionLabels'] ?? []),
-                colors: ['#10B981', '#F59E0B', '#EF4444'],
-                legend: {
-                    position: 'bottom',
-                    fontSize: '12px'
-                },
-                dataLabels: {
-                    enabled: true,
-                    formatter: function(val, opts) {
-                        return opts.w.config.series[opts.seriesIndex];
-                    }
-                }
-            };
-            new ApexCharts(document.querySelector("#performanceDistributionChart"), distributionOptions).render();
-            @endif
-
-            // Module Performance Chart
-            @if(isset($chartData['moduleNames']) && count($chartData['moduleNames']) > 0)
-            const moduleOptions = {
-                series: [{
-                    name: 'Gemiddelde %',
-                    data: @json($chartData['modulePerformances'] ?? [])
-                }],
-                chart: {
-                    type: 'column',
-                    height: 320,
-                    toolbar: { show: false }
-                },
-                plotOptions: {
-                    bar: {
-                        distributed: true,
-                        dataLabels: { position: 'top' }
-                    }
-                },
-                colors: @json($chartData['moduleColors'] ?? []),
-                dataLabels: {
-                    enabled: true,
-                    formatter: function(val) {
-                        return val + '%';
+            @if(isset($chartData['distributionValues']) && is_array($chartData['distributionValues']) && array_sum($chartData['distributionValues']) > 0)
+                try {
+                const distributionOptions = {
+                    series: @json($chartData['distributionValues'] ?? []),
+                    chart: {
+                        type: 'donut',
+                        height: 250
                     },
-                    offsetY: -20,
-                    style: { fontSize: '12px', fontWeight: 'bold' }
-                },
-                xaxis: {
-                    categories: @json($chartData['moduleNames'] ?? []),
-                    labels: {
-                        style: { fontSize: '11px' },
-                        rotate: -45
-                    }
-                },
-                yaxis: {
-                    max: 100,
-                    labels: {
-                        formatter: function(val) {
-                            return val + '%';
+                    labels: @json($chartData['distributionLabels'] ?? []),
+                    colors: ['#10B981', '#F59E0B', '#EF4444'],
+                    legend: {
+                        position: 'bottom',
+                        fontSize: '12px'
+                    },
+                    dataLabels: {
+                        enabled: true,
+                        formatter: function(val, opts) {
+                            return opts.w.config.series[opts.seriesIndex];
                         }
                     }
-                },
-                legend: { show: false }
-            };
-            new ApexCharts(document.querySelector("#modulePerformanceChart"), moduleOptions).render();
-            @endif
+                };
+                new ApexCharts(document.querySelector("#performanceDistributionChart"), distributionOptions).render();
+                console.log('Distribution chart rendered successfully');
+            } catch (error) {
+                console.error('Error rendering distribution chart:', error);
+            }
+            @else
+            document.querySelector("#performanceDistributionChart").innerHTML = '<div class="flex items-center justify-center h-full text-gray-500">Geen verdeling data</div>';
             @endif
 
-            // Trend Chart (if data available)
-            @if(isset($trendData['values']) && count($trendData['values']) > 0)
-            const trendOptions = {
-                series: [{
-                    name: 'Gemiddelde Score',
-                    data: @json($trendData['values'])
-                }],
-                chart: {
-                    type: 'line',
-                    height: 250,
-                    toolbar: { show: false }
-                },
-                stroke: {
-                    curve: 'smooth',
-                    width: 3
-                },
-                colors: ['#8B5CF6'],
-                dataLabels: {
-                    enabled: true,
-                    formatter: function(val) {
-                        return val + '%';
-                    }
-                },
-                xaxis: {
-                    categories: @json($trendData['dates']),
-                    labels: { style: { fontSize: '11px' } }
-                },
-                yaxis: {
-                    max: 100,
-                    labels: {
+            // Module Performance Chart - REMOVED (data shown in table below)
+
+            @else
+            console.warn('No chart data available');
+            @endif
+
+            // Trend Chart
+            @if(isset($trendData['values']) && is_array($trendData['values']) && count($trendData['values']) > 0)
+                try {
+                const trendOptions = {
+                    series: [{
+                        name: 'Gemiddelde Score',
+                        data: @json($trendData['values'])
+                    }],
+                    chart: {
+                        type: 'line',
+                        height: 250,
+                        toolbar: { show: false }
+                    },
+                    stroke: {
+                        curve: 'smooth',
+                        width: 3
+                    },
+                    colors: ['#8B5CF6'],
+                    dataLabels: {
+                        enabled: true,
                         formatter: function(val) {
                             return val + '%';
                         }
+                    },
+                    xaxis: {
+                        categories: @json($trendData['dates'] ?? []),
+                        labels: { style: { fontSize: '11px' } }
+                    },
+                    yaxis: {
+                        max: 100,
+                        labels: {
+                            formatter: function(val) {
+                                return val + '%';
+                            }
+                        }
                     }
-                }
-            };
-            new ApexCharts(document.querySelector("#trendChart"), trendOptions).render();
+                };
+                new ApexCharts(document.querySelector("#trendChart"), trendOptions).render();
+                console.log('Trend chart rendered successfully');
+            } catch (error) {
+                console.error('Error rendering trend chart:', error);
+            }
             @endif
         });
     </script>
