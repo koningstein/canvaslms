@@ -28,7 +28,7 @@ class AveragesReportProcessor
         // Bereken performance categorieën
         $performanceData = $this->calculatePerformanceCategories($studentsWithAverages);
 
-        // Generate chart data
+        // Generate chart data - FIX HIER
         $chartData = $this->generateChartData($studentsWithAverages, $assignmentStats);
 
         // Calculate trend data
@@ -105,17 +105,32 @@ class AveragesReportProcessor
             ],
         ];
 
-        // Module/Assignment performance chart data
+        // FIXED: Module/Assignment performance chart data
+        // Filter opdrachten met geldige gemiddeldes en neem de top 12
+        $validAssignments = $assignmentStats->filter(function($assignment) {
+            return isset($assignment['average_percentage']) &&
+                $assignment['average_percentage'] !== null &&
+                $assignment['graded_count'] > 0;
+        })->sortByDesc('average_percentage')->take(12);
+
         $moduleChartData = [
-            'moduleNames' => $assignmentStats->take(12)->map(function($assignment) {
+            'moduleNames' => $validAssignments->map(function($assignment) {
                 $name = $assignment['assignment_name'];
                 return strlen($name) > 20 ? substr($name, 0, 17) . '...' : $name;
-            })->toArray(),
-            'modulePerformances' => $assignmentStats->take(12)->pluck('average_percentage')->toArray(),
-            'moduleColors' => $assignmentStats->take(12)->map(function($assignment) {
+            })->values()->toArray(),
+            'modulePerformances' => $validAssignments->pluck('average_percentage')->values()->toArray(),
+            'moduleColors' => $validAssignments->map(function($assignment) {
                 return $this->getPerformanceColor($assignment['average_percentage'] ?? 0);
-            })->toArray(),
+            })->values()->toArray(),
         ];
+
+        // Debug logging
+        \Log::info('Chart data generated', [
+            'student_count' => count($studentChartData['studentNames']),
+            'module_count' => count($moduleChartData['moduleNames']),
+            'module_names' => $moduleChartData['moduleNames'],
+            'module_performances' => $moduleChartData['modulePerformances']
+        ]);
 
         return array_merge($studentChartData, $distributionData, $moduleChartData);
     }

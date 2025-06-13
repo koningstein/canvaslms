@@ -3,6 +3,7 @@
 namespace App\Services\Analyzers;
 
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 
 class StatisticsCalculator
 {
@@ -130,16 +131,30 @@ class StatisticsCalculator
     public function calculateAssignmentStatistics(Collection $studentsProgress): Collection
     {
         if ($studentsProgress->isEmpty()) {
+            Log::warning('No students progress data for assignment statistics');
             return collect();
         }
 
-        $allAssignments = $studentsProgress->first()['assignments'];
+        $firstStudent = $studentsProgress->first();
+        if (!isset($firstStudent['assignments']) || $firstStudent['assignments']->isEmpty()) {
+            Log::warning('No assignments found in first student data');
+            return collect();
+        }
+
+        $allAssignments = $firstStudent['assignments'];
+        Log::info('Processing assignment statistics', [
+            'total_assignments' => $allAssignments->count(),
+            'total_students' => $studentsProgress->count()
+        ]);
 
         return $allAssignments->map(function ($assignment) use ($studentsProgress) {
             $assignmentName = $assignment['assignment_name'];
 
             // Verzamel alle student responses voor deze opdracht
             $responses = $studentsProgress->map(function ($student) use ($assignmentName) {
+                if (!isset($student['assignments'])) {
+                    return null;
+                }
                 return $student['assignments']->where('assignment_name', $assignmentName)->first();
             })->filter();
 
@@ -150,7 +165,9 @@ class StatisticsCalculator
                 $status = $response['status'] ?? '';
                 return in_array($status, ['graded', 'good', 'sufficient', 'insufficient']) &&
                     isset($response['score']) &&
-                    is_numeric($response['score']);
+                    is_numeric($response['score']) &&
+                    isset($response['points_possible']) &&
+                    $response['points_possible'] > 0; // Alleen opdrachten met punten
             });
 
             $submittedResponses = $responses->whereIn('status', ['graded', 'submitted', 'good', 'sufficient', 'insufficient']);
@@ -160,21 +177,22 @@ class StatisticsCalculator
             $averagePercentage = null;
 
             if ($gradedResponses->isNotEmpty()) {
-                $validScores = $gradedResponses->filter(function ($response) {
-                    return isset($response['points_possible']) && $response['points_possible'] > 0;
-                });
-
-                if ($validScores->isNotEmpty()) {
-                    $averageScore = round($validScores->avg('score'), 1);
-                    $totalScore = $validScores->sum('score');
-                    $totalPossible = $validScores->sum('points_possible');
-                    $averagePercentage = $totalPossible > 0 ? round(($totalScore / $totalPossible) * 100, 1) : 0;
-                }
+                $averageScore = round($gradedResponses->avg('score'), 1);
+                $totalScore = $gradedResponses->sum('score');
+                $totalPossible = $gradedResponses->sum('points_possible');
+                $averagePercentage = $totalPossible > 0 ? round(($totalScore / $totalPossible) * 100, 1) : 0;
             }
 
             // Bepaal kleur en status voor opdracht
             $averageColor = $this->getAssignmentStatusColor($averagePercentage, $gradedResponses->count());
             $statusText = $this->getAssignmentStatusText($averagePercentage, $gradedResponses->count(), $totalResponses);
+
+            Log::debug('Assignment statistics calculated', [
+                'assignment' => $assignmentName,
+                'graded_count' => $gradedResponses->count(),
+                'average_percentage' => $averagePercentage,
+                'has_points' => isset($assignment['points_possible']) && $assignment['points_possible'] > 0
+            ]);
 
             return array_merge($assignment, [
                 'total_responses' => $totalResponses,
@@ -190,6 +208,9 @@ class StatisticsCalculator
                 'difficulty_text' => $this->getDifficultyText($averagePercentage, $gradedResponses->count()),
                 'difficulty_color' => $this->getDifficultyColor($averagePercentage, $gradedResponses->count()),
             ]);
+        })->filter(function($assignment) {
+            // Optioneel: filter opdrachten zonder punten uit voor chart data
+            return isset($assignment['points_possible']) && $assignment['points_possible'] > 0;
         });
     }
 
