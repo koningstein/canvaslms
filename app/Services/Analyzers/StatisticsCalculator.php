@@ -6,66 +6,72 @@ use Illuminate\Support\Collection;
 
 class StatisticsCalculator
 {
+    public function __construct(
+        protected AverageCalculator $averageCalculator
+    ) {}
+
     public function calculateBasicStats(Collection $studentsProgress): array
     {
         $totalStudents = $studentsProgress->count();
-        $totalAssignments = $studentsProgress->isNotEmpty() ? $studentsProgress->first()['assignments']->count() : 0;
+
+        // Tel alleen opdrachten met punten voor consistentie
+        $totalAssignments = 0;
+        if ($studentsProgress->isNotEmpty() && isset($studentsProgress->first()['assignments'])) {
+            $totalAssignments = $this->averageCalculator->countAssessableAssignments($studentsProgress->first()['assignments']);
+        }
 
         // Tel submissions (graded + submitted)
         $totalSubmissions = $studentsProgress->sum(function($student) {
-            return $student['assignments']->whereIn('status', ['graded', 'submitted'])->count();
+            return $student['assignments']->whereIn('status', ['graded', 'submitted', 'good', 'sufficient', 'insufficient'])->count();
         });
 
-        // Tel alleen graded assignments - FIXED voor percentages rapport
+        // Tel alleen echt beoordeelde opdrachten met punten
         $totalGradedAssignments = $studentsProgress->sum(function($student) {
-            return $student['assignments']->filter(function($assignment) {
-                $status = $assignment['status'] ?? '';
-                return in_array($status, ['graded', 'good', 'sufficient', 'insufficient']);
-            })->count();
+            return $this->averageCalculator->countGradedAssignments($student['assignments']);
         });
 
-        // Bereken totaal punten voor grades rapport
+        // Bereken totaal punten
         $totalPointsAwarded = $studentsProgress->sum(function($student) {
             return $student['assignments']->filter(function($assignment) {
-                return isset($assignment['score']) && is_numeric($assignment['score']);
+                $status = $assignment['status'] ?? '';
+                return in_array($status, ['graded', 'good', 'sufficient', 'insufficient']) &&
+                    isset($assignment['score']) &&
+                    is_numeric($assignment['score']);
             })->sum('score');
         });
 
         $totalPointsPossible = $studentsProgress->sum(function($student) {
             return $student['assignments']->filter(function($assignment) {
-                return isset($assignment['points_possible']) && is_numeric($assignment['points_possible']);
+                return isset($assignment['points_possible']) &&
+                    $assignment['points_possible'] > 0;
             })->sum('points_possible');
         });
 
-        // Bereken completion rate - percentage van opdrachten die beoordeeld zijn
+        // Bereken completion rate - percentage van opdrachten met punten die beoordeeld zijn
         $totalAssignmentsWithPoints = $studentsProgress->sum(function($student) {
-            return $student['assignments']->filter(function($assignment) {
-                return isset($assignment['points_possible']) && $assignment['points_possible'] > 0;
-            })->count();
+            return $this->averageCalculator->countAssessableAssignments($student['assignments']);
         });
 
         $completionRate = $totalAssignmentsWithPoints > 0 ?
             round(($totalGradedAssignments / $totalAssignmentsWithPoints) * 100, 1) : 0;
 
-        // Bereken klas gemiddelde percentage van alle studenten
-        $studentAverages = $studentsProgress->map(function($student) {
-            return $student['average_percentage'] ?? 0;
-        })->filter(function($avg) {
-            return $avg > 0; // Alleen studenten met cijfers
-        });
+        // Gebruik AverageCalculator voor klas gemiddelde
+        $classAverageData = [];
+        $averagePercentage = 0;
 
-        $averagePercentage = $studentAverages->isNotEmpty() ?
-            round($studentAverages->avg(), 1) : 0;
+        if ($studentsProgress->isNotEmpty()) {
+            $classAverageData = $this->averageCalculator->calculateClassAverage($studentsProgress);
+            $averagePercentage = $classAverageData['class_average'] ?? 0;
+        }
 
-        // Return ALLE data in beide naming conventions voor compatibility
         return [
             // Snake case (nieuw/preferred)
             'total_students' => $totalStudents,
             'total_assignments' => $totalAssignments,
             'total_submissions' => $totalSubmissions,
             'total_graded_assignments' => $totalGradedAssignments,
-            'total_points_awarded' => $totalPointsAwarded,
-            'total_points_possible' => $totalPointsPossible,
+            'total_points_awarded' => round($totalPointsAwarded, 1),
+            'total_points_possible' => round($totalPointsPossible, 1),
             'completion_rate' => $completionRate,
             'average_percentage' => $averagePercentage,
 
@@ -74,8 +80,8 @@ class StatisticsCalculator
             'totalAssignments' => $totalAssignments,
             'totalSubmissions' => $totalSubmissions,
             'totalGradedAssignments' => $totalGradedAssignments,
-            'totalPointsAwarded' => $totalPointsAwarded,
-            'totalPointsPossible' => $totalPointsPossible,
+            'totalPointsAwarded' => round($totalPointsAwarded, 1),
+            'totalPointsPossible' => round($totalPointsPossible, 1),
             'completionRate' => $completionRate,
             'averagePercentage' => $averagePercentage,
         ];
@@ -93,7 +99,12 @@ class StatisticsCalculator
 
         foreach ($studentsProgress as $student) {
             foreach ($student['assignments'] as $assignment) {
-                if ($assignment['status'] === 'graded' &&
+                $status = $assignment['status'] ?? '';
+
+                if (in_array($status, ['graded', 'good', 'sufficient', 'insufficient']) &&
+                    isset($assignment['score']) &&
+                    is_numeric($assignment['score']) &&
+                    isset($assignment['points_possible']) &&
                     $assignment['points_possible'] > 0) {
 
                     $percentage = ($assignment['score'] / $assignment['points_possible']) * 100;
@@ -133,8 +144,16 @@ class StatisticsCalculator
             })->filter();
 
             $totalResponses = $responses->count();
-            $gradedResponses = $responses->where('status', 'graded');
-            $submittedResponses = $responses->whereIn('status', ['graded', 'submitted']);
+
+            // Filter alleen echt beoordeelde responses
+            $gradedResponses = $responses->filter(function($response) {
+                $status = $response['status'] ?? '';
+                return in_array($status, ['graded', 'good', 'sufficient', 'insufficient']) &&
+                    isset($response['score']) &&
+                    is_numeric($response['score']);
+            });
+
+            $submittedResponses = $responses->whereIn('status', ['graded', 'submitted', 'good', 'sufficient', 'insufficient']);
 
             // Bereken gemiddelde als er scores zijn
             $averageScore = null;
@@ -142,10 +161,7 @@ class StatisticsCalculator
 
             if ($gradedResponses->isNotEmpty()) {
                 $validScores = $gradedResponses->filter(function ($response) {
-                    return isset($response['score']) &&
-                        is_numeric($response['score']) &&
-                        isset($response['points_possible']) &&
-                        $response['points_possible'] > 0;
+                    return isset($response['points_possible']) && $response['points_possible'] > 0;
                 });
 
                 if ($validScores->isNotEmpty()) {
@@ -156,91 +172,25 @@ class StatisticsCalculator
                 }
             }
 
+            // Bepaal kleur en status voor opdracht
+            $averageColor = $this->getAssignmentStatusColor($averagePercentage, $gradedResponses->count());
+            $statusText = $this->getAssignmentStatusText($averagePercentage, $gradedResponses->count(), $totalResponses);
+
             return array_merge($assignment, [
                 'total_responses' => $totalResponses,
                 'graded_count' => $gradedResponses->count(),
                 'submitted_count' => $submittedResponses->count(),
                 'average_score' => $averageScore,
                 'average_percentage' => $averagePercentage,
-                'completion_rate' => $totalResponses > 0 ? round(($submittedResponses->count() / $totalResponses) * 100, 1) : 0,
+                'completion_percentage' => $totalResponses > 0 ? round(($gradedResponses->count() / $totalResponses) * 100, 1) : 0,
+                'display_value' => $averagePercentage !== null ? $averagePercentage . '%' : '-',
+                'average_color' => $averageColor,
+                'status_text' => $statusText,
+                'status_color' => $this->getStatusColor($gradedResponses->count(), $totalResponses),
+                'difficulty_text' => $this->getDifficultyText($averagePercentage, $gradedResponses->count()),
+                'difficulty_color' => $this->getDifficultyColor($averagePercentage, $gradedResponses->count()),
             ]);
         });
-    }
-
-    protected function calculateCompletionRate(Collection $studentsProgress, int $totalStudents, int $totalAssignments): float
-    {
-        if ($totalStudents === 0 || $totalAssignments === 0) {
-            return 0.0;
-        }
-
-        $completedCount = $studentsProgress->sum(function ($student) {
-            return $student['assignments']->whereIn('status', ['graded', 'submitted'])->count();
-        });
-
-        $totalPossible = $totalStudents * $totalAssignments;
-        return round(($completedCount / $totalPossible) * 100, 1);
-    }
-
-    protected function calculateOverallAverage(Collection $studentsProgress): float
-    {
-        $allPercentages = [];
-
-        foreach ($studentsProgress as $student) {
-            foreach ($student['assignments'] as $assignment) {
-                if ($assignment['status'] === 'graded' &&
-                    $assignment['points_possible'] > 0) {
-                    $percentage = ($assignment['score'] / $assignment['points_possible']) * 100;
-                    $allPercentages[] = $percentage;
-                }
-            }
-        }
-
-        return empty($allPercentages) ? 0.0 : round(array_sum($allPercentages) / count($allPercentages), 1);
-    }
-
-    protected function calculateSingleAssignmentStats(Collection $studentsProgress, string $assignmentName, float $pointsPossible): array
-    {
-        $gradedCount = 0;
-        $percentageSum = 0;
-        $scores = [];
-
-        foreach ($studentsProgress as $student) {
-            $studentAssignment = $student['assignments']->firstWhere('assignment_name', $assignmentName);
-
-            if ($studentAssignment &&
-                $studentAssignment['status'] === 'graded' &&
-                $pointsPossible > 0) {
-
-                $percentage = ($studentAssignment['score'] / $pointsPossible) * 100;
-                $percentageSum += $percentage;
-                $scores[] = $percentage;
-                $gradedCount++;
-            }
-        }
-
-        $averagePercentage = $gradedCount > 0 ? round($percentageSum / $gradedCount, 1) : 0;
-        $completionPercentage = round(($gradedCount / $studentsProgress->count()) * 100, 1);
-
-        return [
-            'average_percentage' => $averagePercentage,
-            'graded_count' => $gradedCount,
-            'completion_percentage' => $completionPercentage,
-            'difficulty_level' => $this->determineDifficultyLevel($averagePercentage, $gradedCount),
-        ];
-    }
-
-    protected function determineDifficultyLevel(float $averagePercentage, int $gradedCount): string
-    {
-        if ($gradedCount < 3) {
-            return 'Unknown';
-        }
-
-        return match (true) {
-            $averagePercentage >= 80 => 'Easy',
-            $averagePercentage >= 65 => 'Medium',
-            $averagePercentage >= 50 => 'Hard',
-            default => 'Very Hard'
-        };
     }
 
     public function calculateMissingStats(Collection $studentsProgress): array
@@ -248,12 +198,14 @@ class StatisticsCalculator
         $totalStudents = $studentsProgress->count();
 
         $totalMissing = $studentsProgress->sum(function($student) {
-            return $student['assignments']->where('status', 'missing')->count();
+            return $student['assignments']->where('status', 'unsubmitted')->count();
         });
 
         $totalInsufficient = $studentsProgress->sum(function($student) {
             return $student['assignments']->filter(function($assignment) {
-                return isset($assignment['score']) &&
+                $status = $assignment['status'] ?? '';
+                return in_array($status, ['graded', 'good', 'sufficient', 'insufficient']) &&
+                    isset($assignment['score']) &&
                     isset($assignment['points_possible']) &&
                     $assignment['points_possible'] > 0 &&
                     (($assignment['score'] / $assignment['points_possible']) * 100) < 55;
@@ -263,9 +215,11 @@ class StatisticsCalculator
         $totalProblematic = $totalMissing + $totalInsufficient;
 
         $studentsWithProblemsCount = $studentsProgress->filter(function($student) {
-            $missing = $student['assignments']->where('status', 'missing')->count();
+            $missing = $student['assignments']->where('status', 'unsubmitted')->count();
             $insufficient = $student['assignments']->filter(function($assignment) {
-                return isset($assignment['score']) &&
+                $status = $assignment['status'] ?? '';
+                return in_array($status, ['graded', 'good', 'sufficient', 'insufficient']) &&
+                    isset($assignment['score']) &&
                     isset($assignment['points_possible']) &&
                     $assignment['points_possible'] > 0 &&
                     (($assignment['score'] / $assignment['points_possible']) * 100) < 55;
@@ -284,5 +238,83 @@ class StatisticsCalculator
             'problemRate' => $problemRate,
             'totalStudents' => $totalStudents,
         ];
+    }
+
+    // Helper methods voor assignment statistics
+    protected function getAssignmentStatusColor(?float $percentage, int $gradedCount): string
+    {
+        if ($percentage === null || $gradedCount === 0) {
+            return 'bg-gray-100 text-gray-600';
+        }
+
+        if ($percentage >= 75) {
+            return 'bg-green-100 text-green-800';
+        } elseif ($percentage >= 55) {
+            return 'bg-yellow-100 text-yellow-800';
+        } else {
+            return 'bg-red-100 text-red-800';
+        }
+    }
+
+    protected function getAssignmentStatusText(?float $percentage, int $gradedCount, int $totalResponses): string
+    {
+        if ($gradedCount === 0) {
+            return 'Niet beoordeeld';
+        }
+
+        $completionRate = round(($gradedCount / $totalResponses) * 100);
+
+        if ($completionRate < 50) {
+            return 'Gedeeltelijk';
+        } elseif ($completionRate < 100) {
+            return 'Bijna klaar';
+        } else {
+            return 'Compleet';
+        }
+    }
+
+    protected function getStatusColor(int $gradedCount, int $totalResponses): string
+    {
+        if ($gradedCount === 0) {
+            return 'bg-gray-100 text-gray-600';
+        }
+
+        $completionRate = ($gradedCount / $totalResponses) * 100;
+
+        if ($completionRate < 50) {
+            return 'bg-red-100 text-red-800';
+        } elseif ($completionRate < 100) {
+            return 'bg-yellow-100 text-yellow-800';
+        } else {
+            return 'bg-green-100 text-green-800';
+        }
+    }
+
+    protected function getDifficultyText(?float $percentage, int $gradedCount): string
+    {
+        if ($percentage === null || $gradedCount < 3) {
+            return 'Onbekend';
+        }
+
+        return match (true) {
+            $percentage >= 80 => 'Makkelijk',
+            $percentage >= 65 => 'Gemiddeld',
+            $percentage >= 50 => 'Moeilijk',
+            default => 'Zeer moeilijk'
+        };
+    }
+
+    protected function getDifficultyColor(?float $percentage, int $gradedCount): string
+    {
+        if ($percentage === null || $gradedCount < 3) {
+            return 'bg-gray-100 text-gray-600';
+        }
+
+        return match (true) {
+            $percentage >= 80 => 'bg-green-100 text-green-800',
+            $percentage >= 65 => 'bg-blue-100 text-blue-800',
+            $percentage >= 50 => 'bg-orange-100 text-orange-800',
+            default => 'bg-red-100 text-red-800'
+        };
     }
 }
