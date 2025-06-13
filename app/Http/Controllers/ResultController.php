@@ -7,11 +7,10 @@ use App\Services\Processing\ConfigurableReportProcessor;
 use App\Services\Processing\MissingReportProcessor;
 use App\Services\Processing\GradesReportProcessor;
 use App\Services\Processing\PercentagesReportProcessor;
+use App\Services\Processing\AveragesReportProcessor;
 use App\Services\Analyzers\AverageCalculator;
 use App\Services\Analyzers\PerformanceAnalyzer;
-use App\Services\Analyzers\TrendAnalyzer;
 use App\Services\Analyzers\StatisticsCalculator;
-use App\Services\Analyzers\ChartDataGenerator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -22,11 +21,10 @@ class ResultController extends Controller
         protected MissingReportProcessor $missingReportProcessor,
         protected GradesReportProcessor $gradesReportProcessor,
         protected PercentagesReportProcessor $percentagesReportProcessor,
+        protected AveragesReportProcessor $averagesReportProcessor,
         protected AverageCalculator $averageCalculator,
         protected PerformanceAnalyzer $performanceAnalyzer,
-        protected TrendAnalyzer $trendAnalyzer,
-        protected StatisticsCalculator $statisticsCalculator,
-        protected ChartDataGenerator $chartDataGenerator
+        protected StatisticsCalculator $statisticsCalculator
     ) {}
 
     public function getSelectedProgress()
@@ -84,21 +82,7 @@ class ResultController extends Controller
         // Gebruik StatisticsCalculator voor basis statistieken
         $statistics = $this->statisticsCalculator->calculateBasicStats($studentsProgress);
 
-        // Debug: tel handmatig de inleveringen
-        $totalSubmissions = 0;
-        foreach ($studentsProgress as $student) {
-            foreach ($student['assignments'] as $assignment) {
-                $status = $assignment['status'] ?? '';
-                // Tel alle beoordeelde statussen
-                if (in_array($status, ['graded', 'submitted', 'good', 'sufficient', 'insufficient'])) {
-                    $totalSubmissions++;
-                }
-            }
-        }
-        $statistics['total_submissions'] = $totalSubmissions;
-        $statistics['totalSubmissions'] = $totalSubmissions;
-
-        // BELANGRIJK: Geef 'basic' als report type mee!
+        // Gebruik AverageCalculator voor alle gemiddelde berekeningen
         $studentsWithAverages = $this->averageCalculator->calculateStudentAverages($studentsProgress, 'basic');
         $assignmentAverages = $this->averageCalculator->calculateAssignmentAverages($studentsProgress, 'basic');
         $classAverageData = $this->averageCalculator->calculateClassAverage($studentsProgress, 'basic');
@@ -184,21 +168,22 @@ class ResultController extends Controller
 
     protected function renderAveragesReport($studentsProgress, $viewData)
     {
-        $statistics = $this->statisticsCalculator->calculateBasicStats($studentsProgress);
-        $assignmentStats = $this->statisticsCalculator->calculateAssignmentStatistics($studentsProgress);
-        $chartData = $this->chartDataGenerator->generateStudentPerformanceChart($studentsProgress);
-        $trendData = $this->trendAnalyzer->calculateTrendData($studentsProgress);
+        // Gebruik de dedicated AveragesReportProcessor
+        $averagesData = $this->averagesReportProcessor->processAveragesData($studentsProgress);
 
         return view('results.averages-report', array_merge($viewData, [
-            'totalStudents' => $statistics['total_students'],
-            'totalAssignments' => $statistics['total_assignments'],
-            'overallClassAverage' => $statistics['average_percentage'],
-            'assignmentAnalysis' => $assignmentStats,
-            'chartData' => $chartData,
-            'trendData' => $trendData,
-            'topPerformers' => collect(),
-            'lowPerformers' => collect(),
-            'insights' => ['performance' => [], 'assignments' => []],
+            'overallClassAverage' => $averagesData['statistics']['average_percentage'],
+            'highestStudentAverage' => $averagesData['performanceData']['highestStudentAverage'],
+            'lowestStudentAverage' => $averagesData['performanceData']['lowestStudentAverage'],
+            'studentsAbove75' => $averagesData['performanceData']['studentsAbove75'],
+            'studentsAbove55' => $averagesData['performanceData']['studentsAbove55'],
+            'studentsBelow55' => $averagesData['performanceData']['studentsBelow55'],
+            'topPerformers' => $averagesData['performanceData']['topPerformers'],
+            'lowPerformers' => $averagesData['performanceData']['lowPerformers'],
+            'assignmentAnalysis' => $averagesData['assignmentAnalysis'],
+            'chartData' => $averagesData['chartData'],
+            'trendData' => $averagesData['trendData'],
+            'insights' => $averagesData['insights'],
         ]));
     }
 }
